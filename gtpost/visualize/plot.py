@@ -17,7 +17,7 @@ from gtpost.visualize import colormaps
 # from gtpost.model import ModelResult
 class PlotBase:
     colormaps = {
-        "d50": colormaps.GrainsizeColormap(),
+        "gt_d50": colormaps.GrainsizeColormap(),
         "architectural_elements": colormaps.GenericCategoricalColormap(
             ArchEl,
             [
@@ -37,7 +37,7 @@ class PlotBase:
         # "architectural_elements": colormaps.ArchelColormap(),
         "deposit_height": colormaps.BedlevelchangeColormap(),
         "porosity": colormaps.PorosityColormap(),
-        "bottom_depth": colormaps.BottomDepthColormap(),
+        "mesh2d_mor_bl": colormaps.BottomDepthColormap(),
         "deposition_age": colormaps.DepositionageColormap(),
     }
     axlabelsize = 14
@@ -47,9 +47,9 @@ class PlotBase:
 
     def __init__(self, modelresult):
         self.model = modelresult
-        self.tickfactor = self.model.dx / 1000
-        self.xticks_map = np.arange(0, len(self.model.dataset.N), 50)
-        self.yticks_map = np.arange(0, len(self.model.dataset.M), 50)
+        self.tickfactor = self.model.grid_resolution / 1000
+        self.xticks_map = np.arange(0, len(self.model.dataset.x), 50)
+        self.yticks_map = np.arange(0, len(self.model.dataset.y), 50)
 
     def __new__(cls, *args, **kwargs):
         if cls is PlotBase:
@@ -456,11 +456,15 @@ class CrossSectionPlot(PlotBase):
             start, finish
         )
         self.anchor_y = np.diagonal(
-            -self.model.dataset["DPS"][:, self.xc, self.yc].values, axis1=1, axis2=2
+            -self.model.dataset["mesh2d_mor_bl"][:, self.xc, self.yc].values,
+            axis1=1,
+            axis2=2,
         )
-        self.dh = self.model.deposit_height[:, self.xc, self.yc]
-        self.dsub = self.model.subsidence[:, self.xc, self.yc]
-        self.preserved = self.model.preserved_thickness[:, self.xc, self.yc]
+        self.dh = self.model.dataset["gt_depositheight"].values[:, self.xc, self.yc]
+        self.dsub = self.model.dataset["gt_subsidence"].values[:, self.xc, self.yc]
+        self.preserved = self.model.dataset["gt_preserved_thickness"].values[
+            :, self.xc, self.yc
+        ]
         self.width = 1
         self.xlim = [self.anchor_x[0], self.anchor_x[-1]]
         self.ylim = [
@@ -479,8 +483,8 @@ class CrossSectionPlot(PlotBase):
         timeline_start=5,
         only_last_timestep=False,
     ):
-        data_xsect = self.model.__dict__[variable_xsect][:, self.xc, self.yc]
-        data_base = self.model.__dict__[variable_basemap]
+        data_xsect = self.model.dataset[variable_xsect][:, self.xc, self.yc]
+        data_base = self.model.dataset[variable_basemap]
         colormap_xsect = self.colormaps[variable_xsect]
         colormap_base = self.colormaps[variable_basemap]
 

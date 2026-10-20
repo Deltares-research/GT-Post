@@ -3,14 +3,17 @@ from configparser import ConfigParser
 from pathlib import Path
 from typing import Self
 
+import dfm_tools as dfmt
 import numpy as np
+import pandas as pd
 import xarray as xr
+import xugrid as xu
 
 import gtpost.utils as utils
 from gtpost.analyze import classifications, layering, sediment, statistics, surface
 from gtpost.analyze.sediment import calculate_diameter
 from gtpost.experimental import detect_archels
-from gtpost.io import export, read_d3d_input
+from gtpost.io import d3d_fm, export
 
 default_settings_file = (
     Path(__file__).parents[1].joinpath("config/default_settings.ini")
@@ -23,6 +26,7 @@ class ModelResult:
         dataset: xr.Dataset,
         sedfile: str | Path,
         modelname: str = "Unnamed Delft3D Geotool modelresult",
+        grid_resolution: int = 50,
         settings_file: str | Path = default_settings_file,
         post: bool = True,
     ):
@@ -44,8 +48,9 @@ class ModelResult:
         """
         self.modelname = modelname
         self.config = ConfigParser()
-        self.config.read(settings_file)
-        self.dataset = dataset  # .isel(time=slice(0, 80))  # time slice for testing
+        # self.config.read(settings_file)
+        self.dataset = dataset.isel(time=slice(0, 80))  # time slice for testing
+        self.grid_resolution = grid_resolution
 
         if post:
             self.complete_init_for_postprocess()
@@ -54,11 +59,11 @@ class ModelResult:
             self.complete_init_for_process()
             self.processing_state = "processing"
         (
-            self.sed_type,
+            self.sed_types,
             self.rho_p,
             self.rho_db,
             self.d50_input,
-        ) = read_d3d_input.read_sedfile(sedfile)
+        ) = d3d_fm.read_sedfile(sedfile)
 
     def __repr__(self):
         return (
@@ -72,8 +77,17 @@ class ModelResult:
         cls,
         delft3d_folder: str | Path,
         settings_file: str | Path = default_settings_file,
+        used_data_vars=[
+            "mesh2d_waterdepth",
+            "mesh2d_uorb",
+            "mesh2d_subsupl",
+            "mesh2d_hwav",
+            "mesh2d_mor_bl",
+            "mesh2d_ucx",
+            "mesh2d_ucy",
+            "mesh2d_dmsedcum",
+        ],
         post: bool = True,
-        use_copied_trim_file: bool = True,
     ) -> Self:
         """
         Constructor for ModelResult class from Delft3D i/o folder
@@ -94,29 +108,36 @@ class ModelResult:
         TypeError if Delft3D folder is invalid/incomplete
         """
         folder = Path(delft3d_folder)
-        if not folder.is_dir():
-            raise TypeError("This is not a complete Delft3D i/o folder")
+        map_files, sed_files, sedfile = d3d_fm.get_fm_folders(folder)
+        modelname = folder.stem + f" - {sedfile.stem}"
 
-        sedfile = [f for f in folder.glob("*.sed")][0]
-        trimfile = [f for f in folder.glob("*.nc") if "trim" in f.name][0]
-        modelname = delft3d_folder.stem + f" - {sedfile.stem}"
+        # Open partitioned datasets for map and sediment files
+        ds_map = dfmt.open_partitioned_dataset(map_files)
+        ds_sed = dfmt.open_partitioned_dataset(sed_files, decode_times=False)
 
-        if use_copied_trim_file:
-            shutil.copyfile(trimfile, folder / "temp.nc")
-            dataset = xr.open_dataset(folder / "temp.nc", decode_timedelta=False)
-        else:
-            dataset = xr.open_dataset(trimfile, decode_timedelta=False)
-
-        if "flow2d3d" in dataset.attrs["source"].lower():
-            return cls(
-                dataset,
-                sedfile,
-                modelname=modelname,
-                post=post,
-                settings_file=settings_file,
+        # Temporary workaround for decoding the time coordinate in the sed dataset
+        time_attrs = ds_sed.time.attrs
+        ds_sed = ds_sed.assign_coords(
+            time=pd.to_datetime(
+                np.hstack([[0], ds_sed.time.values[1:]]),
+                unit="s",
+                origin="2013-12-01 00:00:00",
             )
-        else:
-            raise TypeError("File is not recognized as a Delft3D trim file")
+        )
+        ds_sed.time.assign_attrs(time_attrs)
+
+        # Combine relevant data_vars from map and sediment files
+        vars_in_map = [var for var in used_data_vars if var in ds_map.data_vars]
+        vars_in_sed = [var for var in used_data_vars if var in ds_sed.data_vars]
+        combined_ds = xu.merge([ds_map[vars_in_map], ds_sed[vars_in_sed]])
+
+        return cls(
+            dataset=combined_ds,
+            sedfile=sedfile,
+            modelname=modelname,
+            settings_file=settings_file,
+            post=post,
+        )
 
     @property
     def timestep(self):
@@ -154,7 +175,6 @@ class ModelResult:
         Derive additional attributes from the trimfile (self.dataset) for postprocessing
         the final model results. These are:
 
-        dx, dy              :       int: x and y grid resolution
         mouth_position      :       tuple(int, int): x, y position of the delta apex
         mouth_river_width   :       int: width of the river at the delta apex
         model_boundary      :       shapely.Polygon: polygon of model boundary
@@ -163,25 +183,41 @@ class ModelResult:
         foreset_depth       :       np.ndarray: array (time) with time-dependent depth
                                     of the foreset.
         """
-        self.dx, self.dy = utils.get_dx_dy(self.dataset.XZ[:, 0].values)
-        self.model_mask = self.dataset["KCS"] >= 1
+        # Compute subsidence for postprocessing
         subsidence = np.append(
-            self.dataset["SDU"].values,
-            self.dataset["SDU"].values[-1, :, :][np.newaxis, ...],
+            self.dataset["mesh2d_subsupl"].values,
+            self.dataset["mesh2d_subsupl"].values[-1, :][np.newaxis, ...],
             axis=0,
         )
-        self.subsidence = np.diff(subsidence, axis=0)
-        self.deposit_height = np.zeros_like(self.dataset["MEAN_H1"])
-        self.deposit_height[1:, :, :] = -(
+        subsidence = np.diff(subsidence, axis=0)
+
+        # Compute deposit height for postprocessing
+        deposit_height = np.zeros_like(self.dataset["mesh2d_waterdepth"])
+        deposit_height[1:, :] = -(
             (
-                self.dataset["DPS"].values[1:, :, :]
-                - self.dataset["DPS"].values[:-1, :, :]
+                self.dataset["mesh2d_mor_bl"].values[1:, :]
+                - self.dataset["mesh2d_mor_bl"].values[:-1, :]
             )
-            + self.subsidence[1:, :, :]
+            + subsidence[1:, :]
         )
-        self.deposit_height[np.abs(self.deposit_height) < 1e-5] = 0
-        self.dataset["MEAN_H1"] = self.dataset.MEAN_H1.where(self.dataset.MEAN_H1 > -50)
-        self.bottom_depth = self.dataset["DPS"].where(self.dataset["DPS"] > -10).values
+        deposit_height[np.abs(deposit_height) < 1e-5] = 0
+
+        # Constrain water depth and bottom depth for postprocessing
+        self.dataset["mesh2d_waterdepth"] = self.dataset["mesh2d_waterdepth"].where(
+            self.dataset["mesh2d_waterdepth"] > -50
+        )
+        self.dataset["mesh2d_mor_bl"] = (
+            ("time", "mesh2d_nFaces"),
+            (
+                self.dataset["mesh2d_mor_bl"]
+                .where(self.dataset["mesh2d_mor_bl"] > -10)
+                .values
+            ),
+        )
+
+        # Add new variables to dataset
+        self.dataset["gt_depositheight"] = (("time", "mesh2d_nFaces"), deposit_height)
+        self.dataset["gt_subsidence"] = (("time", "mesh2d_nFaces"), subsidence)
 
     def detect_channel_network(self):
         """
@@ -226,7 +262,9 @@ class ModelResult:
             self.architectural_elements, 0
         ).astype(np.int32)
 
-    def compute_sediment_parameters_postprocessing(self):
+    def compute_sediment_parameters_postprocessing(
+        self, dnumbers: list[int] = [10, 16, 50, 84, 90]
+    ):
         """
         Compute sediment parameters. Add the following attributes ModelResult:
 
@@ -242,26 +280,45 @@ class ModelResult:
         -------
         None (but the above attributes are added to the instance)
         """
-        percentage2cal = [10, 16, 50, 84, 90]
-        self.dmsedcum_final = self.dataset["DMSEDCUM"].values
         # Only the incoming sediment flux determines the composition of potential
         # deposits, so remove fluxes of sediment classes that are negative.
-        self.dmsedcum_final[self.dmsedcum_final < 0] = 0
-        self.zcor = -self.dataset["DPS"].values
-        self.preserved_thickness, self.deposition_age = layering.preservation(
-            self.zcor, self.dataset["SDU"].values, self.deposit_height
+        dmsedcum_influx = self.dataset["mesh2d_dmsedcum"].values.astype(np.float32)
+        dmsedcum_influx[dmsedcum_influx < 0] = 0
+
+        # Absolute z-coordinates, preserved thickness and deposition age
+        zcor = -self.dataset["mesh2d_mor_bl"].values
+        preserved_thickness, deposition_age = layering.preservation(
+            zcor,
+            self.dataset["mesh2d_mor_bl"].values,
+            self.dataset["gt_depositheight"].values,
         )
-        self.vfraction = sediment.calculate_fraction(self.rho_db, self.dmsedcum_final)
-        self.sandfraction = sediment.calculate_sand_fraction(
-            self.sed_type, self.vfraction
-        )
-        self.diameters, self.porosity, self.permeability = calculate_diameter(
+
+        # Compute sediment parameters
+        vfraction = sediment.calculate_fraction(self.rho_db, dmsedcum_influx)
+        sandfraction = sediment.calculate_sand_fraction(self.sed_types, vfraction)
+        diameters, porosity, permeability = calculate_diameter(
             np.asarray(self.d50_input, dtype=np.float32),
-            np.asarray(percentage2cal, dtype=np.float32),
-            self.vfraction,
+            np.asarray(dnumbers, dtype=np.float32),
+            vfraction,
         )
-        self.sorting = sediment.calculate_sorting(self.diameters, percentage2cal)
-        self.d50 = self.diameters[:, :, :, 2]
+        sorting = sediment.calculate_sorting(diameters, dnumbers)
+        d50 = diameters[:, :, 2]
+
+        # Add new variables to the dataset
+        # self.dataset["gt_zcor"] = (("time", "mesh2d_nFaces"), zcor)
+        # self.dataset["gt_dmsedcum"] = (("time", "mesh2d_nFaces"), dmsedcum_influx)
+        self.dataset["gt_preserved_thickness"] = (
+            ("time", "mesh2d_nFaces"),
+            preserved_thickness,
+        )
+        self.dataset["gt_deposition_age"] = (("time", "mesh2d_nFaces"), deposition_age)
+        self.dataset["gt_sandfraction"] = (("time", "mesh2d_nFaces"), sandfraction)
+        self.dataset["gt_vfraction"] = (("time", "nSedTot", "mesh2d_nFaces"), vfraction)
+        # self.dataset["gt_diameters"] = (("time", "mesh2d_nFaces", "dnum"), diameters)
+        self.dataset["gt_porosity"] = (("time", "mesh2d_nFaces"), porosity)
+        self.dataset["gt_permeability"] = (("time", "mesh2d_nFaces"), permeability)
+        self.dataset["gt_sorting"] = (("time", "mesh2d_nFaces"), sorting)
+        self.dataset["gt_d50"] = (("time", "mesh2d_nFaces"), d50)
 
     def compute_sediment_parameters_processing(self):
         """
@@ -355,8 +412,12 @@ class ModelResult:
         - Detect architectural elements
         """
         self.compute_sediment_parameters_postprocessing()
-        self.detect_architectural_elements()
-        self.statistics_summary()
+        # At this point we switch to the rasterized dataset for further processing
+        self.dataset = dfmt.rasterize_ugrid(
+            self.dataset, resolution=self.grid_resolution
+        )
+        # self.detect_architectural_elements()
+        # self.statistics_summary()
 
     def export_sediment_and_object_data(self, out_file: str | Path):
         """

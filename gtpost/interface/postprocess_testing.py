@@ -47,14 +47,12 @@ def main(
     if fpath_output.exists() is False:
         fpath_output.mkdir(parents=True, exist_ok=True)
 
-    template_name = get_template_name(fpath_input)
-    settings_file = (
-        Path(__file__).parents[2].joinpath(f"config/settings_{template_name}.ini")
-    )
+    # template_name = get_template_name(fpath_input)
+    # settings_file = (
+    #     Path(__file__).parents[2].joinpath(f"config/settings_{template_name}.ini")
+    # )
 
-    modelresult = ModelResult.from_folder(
-        fpath_input, post=True, settings_file=settings_file, use_copied_trim_file=False
-    )
+    modelresult = ModelResult.from_folder(fpath_input, post=True, settings_file=None)
     logger.info(
         f"{get_current_time()}: Initialized model results:\n\n{modelresult}\n\n"
     )
@@ -65,55 +63,55 @@ def main(
         + log_memory_usage()
     )
 
-    # Data export
-    modelresult.append_input_ini_file(
-        input_ini_file,
-        fpath_output.joinpath(modelresult.modelname + "_input_postprocessed.ini"),
-    )
-    logger.info(
-        f"{get_current_time()}: Created {modelresult.modelname}_input_postprocessed.ini, "
-        + log_memory_usage()
-    )
-    modelresult.export_sediment_and_object_data(
-        fpath_output.joinpath(modelresult.modelname + "_sed_and_obj_data.nc")
-    )
-    logger.info(
-        f"{get_current_time()}: Created {modelresult.modelname}_sed_and_obj_data.nc"
-        + log_memory_usage()
-    )
+    # # Data export
+    # modelresult.append_input_ini_file(
+    #     input_ini_file,
+    #     fpath_output.joinpath(modelresult.modelname + "_input_postprocessed.ini"),
+    # )
+    # logger.info(
+    #     f"{get_current_time()}: Created {modelresult.modelname}_input_postprocessed.ini, "
+    #     + log_memory_usage()
+    # )
+    # modelresult.export_sediment_and_object_data(
+    #     fpath_output.joinpath(modelresult.modelname + "_sed_and_obj_data.nc")
+    # )
+    # logger.info(
+    #     f"{get_current_time()}: Created {modelresult.modelname}_sed_and_obj_data.nc"
+    #     + log_memory_usage()
+    # )
 
-    with open(
-        fpath_output.joinpath(modelresult.modelname + "_statistics_summary.json"), "w"
-    ) as f:
-        json.dump(
-            modelresult.delta_stats,
-            f,
-        )
-    logger.info(
-        f"{get_current_time()}: Created {modelresult.modelname}_statistics_summary.json"
-        + log_memory_usage()
-    )
+    # with open(
+    #     fpath_output.joinpath(modelresult.modelname + "_statistics_summary.json"), "w"
+    # ) as f:
+    #     json.dump(
+    #         modelresult.delta_stats,
+    #         f,
+    #     )
+    # logger.info(
+    #     f"{get_current_time()}: Created {modelresult.modelname}_statistics_summary.json"
+    #     + log_memory_usage()
+    # )
 
-    logger.info(
-        f"{get_current_time()}: Created {modelresult.modelname}_architectural_elements.png"
-        + log_memory_usage()
-    )
+    # logger.info(
+    #     f"{get_current_time()}: Created {modelresult.modelname}_architectural_elements.png"
+    #     + log_memory_usage()
+    # )
 
-    # Summary plot
-    logger.info(f"{get_current_time()}: Plotting stats, " + log_memory_usage())
-    stat_plotter = plot.StatPlot(modelresult)
-    stat_plotter.plot_histograms_wavedominated(fpath_output, "archel_summary")
+    # # Summary plot
+    # logger.info(f"{get_current_time()}: Plotting stats, " + log_memory_usage())
+    # stat_plotter = plot.StatPlot(modelresult)
+    # stat_plotter.plot_histograms_wavedominated(fpath_output, "archel_summary")
 
-    # Map plots
-    logger.info(f"{get_current_time()}: Plotting archel maps, " + log_memory_usage())
-    map_plotter = plot.MapPlot(modelresult)
-    map_plotter.twopanel_map(
-        "bottom_depth",
-        "architectural_elements",
-        fpath_output,
-        "map_bottomdepth_archels",
-        only_last_timestep=False,
-    )
+    # # Map plots
+    # logger.info(f"{get_current_time()}: Plotting archel maps, " + log_memory_usage())
+    # map_plotter = plot.MapPlot(modelresult)
+    # map_plotter.twopanel_map(
+    #     "bottom_depth",
+    #     "architectural_elements",
+    #     fpath_output,
+    #     "map_bottomdepth_archels",
+    #     only_last_timestep=False,
+    # )
 
     # Cross-section plots
     position_tags = ["xshore_7000", "xshore_5000", "xshore_9000", "lshore_3500"]
@@ -129,23 +127,23 @@ def main(
             f"{get_current_time()}: Plotting D50 x-sections, " + log_memory_usage()
         )
         xsect_plotter.twopanel_xsection(
-            "bottom_depth",
-            "d50",
+            "mesh2d_mor_bl",
+            "gt_d50",
             fpath_output,
             f"xsect_diameter_{position_tag}",
             only_last_timestep=False,
         )
 
-        logger.info(
-            f"{get_current_time()}: Plotting archel x-sections, " + log_memory_usage()
-        )
-        xsect_plotter.twopanel_xsection(
-            "bottom_depth",
-            "architectural_elements",
-            fpath_output,
-            f"xsect_archels_{position_tag}",
-            only_last_timestep=False,
-        )
+        # logger.info(
+        #     f"{get_current_time()}: Plotting archel x-sections, " + log_memory_usage()
+        # )
+        # xsect_plotter.twopanel_xsection(
+        #     "bottom_depth",
+        #     "architectural_elements",
+        #     fpath_output,
+        #     f"xsect_archels_{position_tag}",
+        #     only_last_timestep=False,
+        # )
 
         logger.info(
             f"{get_current_time()}: Plotting deposition age x-sections, "
@@ -162,8 +160,8 @@ def main(
 
 if __name__ == "__main__":
     main(
-        r"p:\11210835-002-d3d-gt-wave-dominated\01_modelling\Pro_117",
-        r"p:\11210835-002-d3d-gt-wave-dominated\02_postprocessing\Pro_117_h7",
+        r"c:\data\Delft3DFM_local\BH_020",
+        r"",
     )
     main(
         r"p:\11210835-002-d3d-gt-wave-dominated\01_modelling\Pro_118",

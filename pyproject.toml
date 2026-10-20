@@ -42,6 +42,7 @@ dependencies = [
     "h5netcdf",
     "mako",
     "psutil",
+    "dfm-tools>=0.44.0,<0.45",
 ]
 
 [project.urls]
@@ -54,9 +55,9 @@ path = "gtpost/__init__.py"
 [tool.hatch.build.targets.sdist]
 only-include = ["gtpost", "tests"]
 
-[tool.pixi.project]
+[tool.pixi.workspace]
 channels = ["conda-forge"]
-platforms = ["win-64"]
+platforms = ["win-64", "linux-64"]
 
 [tool.pixi.dependencies]
 python = ">=3.12"
@@ -89,6 +90,7 @@ pip = "*"
 cuda-toolkit = "*"
 psutil = "*"
 sympy = "*"
+numba_celltree = "*"
 
 [tool.pixi.pypi-dependencies]
 labelme2yolo = "*"
@@ -99,10 +101,6 @@ gtpost = { path = ".", editable = true }
 
 [pixi.tool.pypi-options]
 extra-index-urls = ["https://download.pytorch.org/whl/cu121"]
-
-[tool.pixi.system-requirements]
-linux = "5.4"
-cuda = "12.1"
 
 [tool.pixi.tasks]
 test = "python -m pytest --verbose --cov=gtpost --cov-config=.coveragerc"

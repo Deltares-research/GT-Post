@@ -30,16 +30,16 @@ def preservation(
     for t in range(zcor.shape[0]):
         if t != zcor.shape[0] - 1:
             z_preserved = (
-                zcor_corrected[t, :, :] - np.min(zcor_corrected[t + 1 :, :, :], axis=0)
+                zcor_corrected[t, :] - np.min(zcor_corrected[t + 1 :, :], axis=0)
             ) * -1
         else:
-            z_preserved = zcor_corrected[t, :, :] - zcor_corrected[t - 1, :, :]
+            z_preserved = zcor_corrected[t, :] - zcor_corrected[t - 1, :]
         z_preserved[z_preserved < 0] = 0
-        preserved_thickness[t, :, :] = z_preserved
+        preserved_thickness[t, :] = z_preserved
         if t == 0:
-            deposition_age[t, :, :] = np.full_like(z_preserved, t)
+            deposition_age[t, :] = np.full_like(z_preserved, t)
         else:
-            deposition_age[t, :, :] = deposition_age[t - 1, :, :]
-            deposition_age[t, :, :][deposit_height[t, :, :] > 0] = t
+            deposition_age[t, :] = deposition_age[t - 1, :]
+            deposition_age[t, :][deposit_height[t, :] > 0] = t
 
     return preserved_thickness, deposition_age

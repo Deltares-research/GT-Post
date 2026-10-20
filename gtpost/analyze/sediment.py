@@ -2,41 +2,7 @@ import numba
 import numpy as np
 
 
-def get_d50input(sedfile, sedtype, rho_p, sedfile_line):
-    """calculate the d50 for sediment input:
-    if the sedtype is not mud, then directly read d50;
-    if the sedtype is mud, using stokes to calculate d50
-    """
-    d50input = []
-    rhof = 1000
-    mu = 0.001
-    g = 9.81
-    """
-        basic parameters for stokes equation:
-        rho_f = 1000 fluid density
-        rho_p: specific density, reading from sed_file
-        g:9.81
-        mu: 0.001 dynamic viscosity
-    """
-    # get the number of sediment fraction
-    for stype in range(len(sedtype)):
-        if sedtype[stype] == "mud":
-            linetoread = sedfile_line[stype] + 3
-            with open(sedfile, encoding="cp1252") as fobj:
-                line = fobj.readlines()
-                svelocity = float(line[linetoread].split()[2])
-                d50c = np.sqrt(18 * mu * svelocity / g / (rho_p[stype] - rhof))
-                d50input.append(d50c)
-        if sedtype[stype] == "sand":
-            linetoread = sedfile_line[stype] + 2
-            with open(sedfile, encoding="cp1252") as fobj:
-                line = fobj.readlines()
-                d50c = float(line[linetoread].split()[2])
-                d50input.append(d50c)
-    return d50input
-
-
-def calculate_fraction(rho_db: np.array, dmsedcum_final: np.array) -> np.array:
+def calculate_fraction(rho_db: np.array, dmsedcum_influx: np.array) -> np.array:
     """
     Calculate the volumetric fraction of sediment.
     This function computes the volumetric fraction of sediment by dividing the cumulative
@@ -46,7 +12,7 @@ def calculate_fraction(rho_db: np.array, dmsedcum_final: np.array) -> np.array:
     ----------
     rho_db : np.array
         Array of dry bed densities.
-    dmsedcum_final : np.array
+    dmsedcum_influx : np.array
         Array of cumulative sediment mass.
 
     Returns
@@ -54,33 +20,37 @@ def calculate_fraction(rho_db: np.array, dmsedcum_final: np.array) -> np.array:
     np.array
         Array of volumetric fractions of sediment.
     """
-    vfraction = np.zeros_like(dmsedcum_final, dtype=np.float32)
-    old_err_state = np.seterr(divide="ignore", invalid="ignore")
+    vfraction = np.zeros_like(dmsedcum_influx, dtype=np.float32)
 
     # derive the volumetric sed flux by dividing by dry bed density
-    dvsedcum = dmsedcum_final / rho_db[:, np.newaxis, np.newaxis]
-
-    dvsedcum[dmsedcum_final <= 0] = 0
+    dvsedcum = dmsedcum_influx / rho_db[np.newaxis, :, np.newaxis]
     sumsedvcum = np.sum(dvsedcum, axis=1)
 
     vfraction = np.divide(
         dvsedcum,
-        sumsedvcum[:, np.newaxis, :, :],
-        where=sumsedvcum[:, np.newaxis, :, :] != 0,
+        sumsedvcum[
+            :,
+            np.newaxis,
+            :,
+        ],
+        where=sumsedvcum[
+            :,
+            np.newaxis,
+            :,
+        ]
+        != 0,
     )
-    vfraction[np.isnan(vfraction) == 1] = 0
-    # go back to original error state
-    np.seterr(**old_err_state)
+    vfraction[np.isnan(vfraction)] = 0
     return vfraction
 
 
-def calculate_sand_fraction(sedtype: list, vfraction: np.array) -> np.array:
+def calculate_sand_fraction(sed_types: list, vfraction: np.array) -> np.array:
     """
     Calculate the sand fraction from the given sediment types and volume fractions.
 
     Parameters
     ----------
-    sedtype : list
+    sed_types : list
         A list of sediment types.
     vfraction : np.array
         A numpy array representing the volume fractions of different sediment types.
@@ -89,12 +59,9 @@ def calculate_sand_fraction(sedtype: list, vfraction: np.array) -> np.array:
     np.array
         A numpy array containing the summed volume fractions of sand, with mud fractions set to zero.
     """
-    vfrac = vfraction.copy()
-    num_stypes = np.shape(vfrac)[1]
-    for stype in range(num_stypes):
-        if sedtype[stype] == "mud":
-            vfrac[:, stype, :, :] = 0
-    return np.sum(vfrac, axis=1).astype(np.float32)
+    sand_indices = [i for i, stype in enumerate(sed_types) if stype == "sand"]
+    sand_fraction = np.sum(vfraction[:, sand_indices, :], axis=1).astype(np.float32)
+    return sand_fraction
 
 
 def calculate_sorting(diameters: np.ndarray, percentage2cal: list) -> np.ndarray:
@@ -121,16 +88,16 @@ def calculate_sorting(diameters: np.ndarray, percentage2cal: list) -> np.ndarray
     sorting = (phi_84 - phi_16) / 4 + (phi_90 - phi_10) / 6.6
     where phi_x is the grain size at the xth percentile in grain size phi.
     """
-    index10 = percentage2cal.index(10)
-    index16 = percentage2cal.index(16)
-    index84 = percentage2cal.index(84)
-    index90 = percentage2cal.index(90)
-    # using Folks 1968 for calculate sorting parameter.
-    diameters_phi = -np.log2(diameters)
-    sorting = (
-        diameters_phi[:, :, :, index84] - diameters_phi[:, :, :, index16]
-    ) / 4 + (diameters_phi[:, :, :, index90] - diameters_phi[:, :, :, index10]) / 6.6
-    return -sorting
+    index10, index16, index84, index90 = (
+        percentage2cal.index(p) for p in (10, 16, 84, 90)
+    )
+    phi = -np.log2(diameters)
+
+    # Compute Folk's (1968) sorting parameter
+    return -(
+        (phi[..., index84] - phi[..., index16]) / 4
+        + (phi[..., index90] - phi[..., index10]) / 6.6
+    )
 
 
 @numba.njit
@@ -215,55 +182,46 @@ def calculate_distribution(fraction_data, d50input):
 
 @numba.njit(parallel=True)
 def calculate_diameter(d50input, percentage2cal, vfraction):
-    if len(vfraction.shape) == 4:
-        nt, nlyr, nx, ny = vfraction.shape
-
-    diameters = np.zeros((nt, nx, ny, len(percentage2cal)), dtype=np.float32)
-    porosity = np.zeros((nt, nx, ny), dtype=np.float32)
+    nt, _, nc = vfraction.shape
+    diameters = np.zeros((nt, nc, len(percentage2cal)), dtype=np.float32)
+    porosity = np.zeros((nt, nc), dtype=np.float32)
     permeability = np.zeros_like(porosity)
     diameters[0] = np.nan
     porosity[0] = np.nan
     permeability[0] = np.nan
     for it in numba.prange(nt):
-        for ix in numba.prange(nx):
-            for iy in numba.prange(ny):
-                fraction_data = vfraction[it, :, ix, iy]
-                # return the phi value needs to be changed back to meters
-                (
-                    cdf,
-                    xvalue,
-                    porosity[it, ix, iy],
-                    permeability[it, ix, iy],
-                ) = calculate_distribution(fraction_data, d50input)
-                # If poro/perm returns nan, find the last known value from previous time steps
-                # This is then still the poros/perm at the surface
-                # dmsedcum_final += 1
-                if np.isnan(porosity[it, ix, iy]):
-                    lastknown_idxs = (porosity[:, ix, iy] > 0.0).nonzero()[-1]
-                    if len(lastknown_idxs) != 0:
-                        porosity[it, ix, iy] = porosity[lastknown_idxs[-1], ix, iy]
-                        permeability[it, ix, iy] = permeability[
-                            lastknown_idxs[-1], ix, iy
-                        ]
-                for ipercen in range(len(percentage2cal)):
-                    diameters[it, ix, iy, ipercen] = 2 ** (
-                        -xvalue[
-                            np.argmin(
-                                np.abs(cdf - (1 - (0.01 * percentage2cal[ipercen])))
-                            )
-                        ]
-                    )
-                    # set diameter to zero if there is no deposition
-                    # because in the models, we don't have 2000mm,
-                    # if it is equals to 2000, then there it assigns to the value
-                    # below it
-                    if diameters[it, ix, iy, ipercen] == 2:
-                        if it > 0:
-                            diameters[it, ix, iy, ipercen] = diameters[
-                                it - 1, ix, iy, ipercen
-                            ]
-                        else:
-                            diameters[it, ix, iy, ipercen] = 0
+        for ic in numba.prange(nc):
+            fraction_data = vfraction[it, :, ic]
+            # return the phi value needs to be changed back to meters
+            (
+                cdf,
+                xvalue,
+                porosity[it, ic],
+                permeability[it, ic],
+            ) = calculate_distribution(fraction_data, d50input)
+            # If poro/perm returns nan, find the last known value from previous time steps
+            # This is then still the poros/perm at the surface
+            # dmsedcum_final += 1
+            if np.isnan(porosity[it, ic]):
+                lastknown_idxs = (porosity[:, ic] > 0.0).nonzero()[-1]
+                if len(lastknown_idxs) != 0:
+                    porosity[it, ic] = porosity[lastknown_idxs[-1], ic]
+                    permeability[it, ic] = permeability[lastknown_idxs[-1], ic]
+            for ipercen in range(len(percentage2cal)):
+                diameters[it, ic, ipercen] = 2 ** (
+                    -xvalue[
+                        np.argmin(np.abs(cdf - (1 - (0.01 * percentage2cal[ipercen]))))
+                    ]
+                )
+                # set diameter to zero if there is no deposition
+                # because in the models, we don't have 2000mm,
+                # if it is equals to 2000, then there it assigns to the value
+                # below it
+                if diameters[it, ic, ipercen] == 2:
+                    if it > 0:
+                        diameters[it, ic, ipercen] = diameters[it - 1, ic, ipercen]
                     else:
-                        pass
+                        diameters[it, ic, ipercen] = 0
+                else:
+                    pass
     return (diameters, porosity, permeability)
