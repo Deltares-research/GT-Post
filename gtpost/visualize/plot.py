@@ -35,10 +35,10 @@ class PlotBase:
             "Architectural elements",
         ),
         # "architectural_elements": colormaps.ArchelColormap(),
-        "deposit_height": colormaps.BedlevelchangeColormap(),
-        "porosity": colormaps.PorosityColormap(),
+        "gt_depositheight": colormaps.BedlevelchangeColormap(),
+        "gt_porosity": colormaps.PorosityColormap(),
         "mesh2d_mor_bl": colormaps.BottomDepthColormap(),
-        "deposition_age": colormaps.DepositionageColormap(),
+        "gt_deposition_age": colormaps.DepositionageColormap(),
     }
     axlabelsize = 14
     axtitlesize = 16
@@ -456,7 +456,7 @@ class CrossSectionPlot(PlotBase):
             start, finish
         )
         self.anchor_y = np.diagonal(
-            -self.model.dataset["mesh2d_mor_bl"][:, self.xc, self.yc].values,
+            self.model.dataset["mesh2d_mor_bl"][:, self.xc, self.yc].values,
             axis1=1,
             axis2=2,
         )
@@ -468,8 +468,8 @@ class CrossSectionPlot(PlotBase):
         self.width = 1
         self.xlim = [self.anchor_x[0], self.anchor_x[-1]]
         self.ylim = [
-            np.round(self.anchor_y.min() - 1),
-            np.round(self.anchor_y.max() + 1),
+            np.round(np.nanmin(self.anchor_y) - 1),
+            np.round(np.nanmax(self.anchor_y) + 1),
         ]
 
     def twopanel_xsection(
@@ -483,7 +483,9 @@ class CrossSectionPlot(PlotBase):
         timeline_start=5,
         only_last_timestep=False,
     ):
-        data_xsect = self.model.dataset[variable_xsect][:, self.xc, self.yc]
+        data_xsect = self.model.dataset[variable_xsect][
+            :, xr.DataArray(self.xc), xr.DataArray(self.yc)
+        ]
         data_base = self.model.dataset[variable_basemap]
         colormap_xsect = self.colormaps[variable_xsect]
         colormap_base = self.colormaps[variable_basemap]

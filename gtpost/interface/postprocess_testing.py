@@ -115,8 +115,8 @@ def main(
 
     # Cross-section plots
     position_tags = ["xshore_7000", "xshore_5000", "xshore_9000", "lshore_3500"]
-    xsect_starts = [(30, 140), (30, 100), (30, 180), (70, 20)]
-    xsect_ends = [(140, 140), (140, 100), (140, 180), (70, 260)]
+    xsect_starts = [(140, 30), (100, 30), (180, 30), (20, 70)]
+    xsect_ends = [(140, 140), (100, 140), (180, 140), (260, 70)]
 
     for position_tag, xsect_start, xsect_end in zip(
         position_tags, xsect_starts, xsect_ends
@@ -150,8 +150,8 @@ def main(
             + log_memory_usage()
         )
         xsect_plotter.twopanel_xsection(
-            "bottom_depth",
-            "deposition_age",
+            "mesh2d_mor_bl",
+            "gt_deposition_age",
             fpath_output,
             f"xsect_depositionage_{position_tag}",
             only_last_timestep=False,
@@ -161,7 +161,7 @@ def main(
 if __name__ == "__main__":
     main(
         r"c:\data\Delft3DFM_local\BH_020",
-        r"",
+        r"c:\data\Delft3DFM_local\BH_020\postprocess",
     )
     main(
         r"p:\11210835-002-d3d-gt-wave-dominated\01_modelling\Pro_118",

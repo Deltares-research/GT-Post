@@ -102,7 +102,7 @@ class GrainsizeColormap(NamedTuple):
     name = "Grain size (D50)"
     type = "mappable"
     vmin = 0
-    vmax = 1.0
+    vmax = 1.4
     cmap, mappable, norm = continuous_cmap(
         [c0, c1, c2, c3, c4, c5, c6], name, vmin, vmax
     )
@@ -154,21 +154,21 @@ class BedlevelchangeColormap(NamedTuple):
 
 
 class BottomDepthColormap(NamedTuple):
-    c0 = (0, "#182514")
-    c1 = (0.143, "#0C672C")
-    c2 = (0.286, "#829E06")
-    c3 = (0.429, "#E5D37F")
-    c4 = (0.5, "#FDFAE6")
-    c5 = (0.571, "#C4DAD0")
-    c6 = (0.714, "#45A2AE")
-    c7 = (0.857, "#1B5A9E")
-    c8 = (1, "#172313")
+    c0 = (1 - 0, "#182514")
+    c1 = (1 - 0.143, "#0C672C")
+    c2 = (1 - 0.286, "#829E06")
+    c3 = (1 - 0.429, "#E5D37F")
+    c4 = (1 - 0.5, "#FDFAE6")
+    c5 = (1 - 0.571, "#C4DAD0")
+    c6 = (1 - 0.714, "#45A2AE")
+    c7 = (1 - 0.857, "#1B5A9E")
+    c8 = (1 - 1, "#172313")
     name = "Bottom depth"
     type = "mappable"
-    vmin = -6
-    vmax = 8
+    vmin = -8
+    vmax = 6
     cmap, mappable, norm = continuous_cmap(
-        [c0, c1, c2, c3, c4, c5, c6, c7, c8], name, vmin, vmax
+        [c0, c1, c2, c3, c4, c5, c6, c7, c8][::-1], name, vmin, vmax
     )
 
 
@@ -179,22 +179,22 @@ class BottomDepthHighContrastColormap(NamedTuple):
     object detection algorithms.
     """
 
-    c0 = (0, "#000000")
-    c1 = (0.01, "#182514")
-    c2 = (0.05, "#0C672C")
-    c3 = (0.1, "#829E06")
-    c4 = (0.15, "#E5D37F")
-    c5 = (0.2, "#FDFAE6")
-    c6 = (0.3, "#C4DAD0")
-    c7 = (0.5, "#45A2AE")
-    c8 = (0.8, "#1B5A9E")
-    c9 = (1, "#172313")
+    c0 = (1 - 0, "#000000")
+    c1 = (1 - 0.01, "#182514")
+    c2 = (1 - 0.05, "#0C672C")
+    c3 = (1 - 0.1, "#829E06")
+    c4 = (1 - 0.15, "#E5D37F")
+    c5 = (1 - 0.2, "#FDFAE6")
+    c6 = (1 - 0.3, "#C4DAD0")
+    c7 = (1 - 0.5, "#45A2AE")
+    c8 = (1 - 0.8, "#1B5A9E")
+    c9 = (1 - 1, "#172313")
     name = "Bottom depth"
     type = "mappable"
-    vmin = -2
-    vmax = 8
+    vmin = -8
+    vmax = 2
     cmap, mappable, norm = continuous_cmap(
-        [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9], name, vmin, vmax
+        [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9][::-1], name, vmin, vmax
     )
 
 

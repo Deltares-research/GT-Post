@@ -49,7 +49,7 @@ class ModelResult:
         self.modelname = modelname
         self.config = ConfigParser()
         # self.config.read(settings_file)
-        self.dataset = dataset.isel(time=slice(0, 80))  # time slice for testing
+        self.dataset = dataset  # .isel(time=slice(0, 80))  # time slice for testing
         self.grid_resolution = grid_resolution
 
         if post:
@@ -193,13 +193,10 @@ class ModelResult:
 
         # Compute deposit height for postprocessing
         deposit_height = np.zeros_like(self.dataset["mesh2d_waterdepth"])
-        deposit_height[1:, :] = -(
-            (
-                self.dataset["mesh2d_mor_bl"].values[1:, :]
-                - self.dataset["mesh2d_mor_bl"].values[:-1, :]
-            )
-            + subsidence[1:, :]
-        )
+        deposit_height[1:, :] = (
+            self.dataset["mesh2d_mor_bl"].values[1:, :]
+            - self.dataset["mesh2d_mor_bl"].values[:-1, :]
+        ) + subsidence[1:, :]
         deposit_height[np.abs(deposit_height) < 1e-5] = 0
 
         # Constrain water depth and bottom depth for postprocessing
@@ -210,7 +207,7 @@ class ModelResult:
             ("time", "mesh2d_nFaces"),
             (
                 self.dataset["mesh2d_mor_bl"]
-                .where(self.dataset["mesh2d_mor_bl"] > -10)
+                .where(self.dataset["mesh2d_mor_bl"] < 10)
                 .values
             ),
         )
@@ -305,8 +302,6 @@ class ModelResult:
         d50 = diameters[:, :, 2]
 
         # Add new variables to the dataset
-        # self.dataset["gt_zcor"] = (("time", "mesh2d_nFaces"), zcor)
-        # self.dataset["gt_dmsedcum"] = (("time", "mesh2d_nFaces"), dmsedcum_influx)
         self.dataset["gt_preserved_thickness"] = (
             ("time", "mesh2d_nFaces"),
             preserved_thickness,
@@ -411,11 +406,16 @@ class ModelResult:
         - Detect subenvironments
         - Detect architectural elements
         """
+        import matplotlib.pyplot as plt
+
         self.compute_sediment_parameters_postprocessing()
         # At this point we switch to the rasterized dataset for further processing
         self.dataset = dfmt.rasterize_ugrid(
             self.dataset, resolution=self.grid_resolution
         )
+        # self.dataset["gt_depositheight"][2, :, :].plot.imshow(vmin=-1, vmax=1)
+        # plt.show()
+        # print("Deposit height plotted")
         # self.detect_architectural_elements()
         # self.statistics_summary()
 
