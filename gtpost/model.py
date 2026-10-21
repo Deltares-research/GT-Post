@@ -9,11 +9,10 @@ import pandas as pd
 import xarray as xr
 import xugrid as xu
 
-import gtpost.utils as utils
 from gtpost.analyze import classifications, layering, sediment, statistics, surface
-from gtpost.analyze.sediment import calculate_diameter
 from gtpost.experimental import detect_archels
 from gtpost.io import d3d_fm, export
+from gtpost.method_validation import run_method
 
 default_settings_file = (
     Path(__file__).parents[1].joinpath("config/default_settings.ini")
@@ -28,7 +27,6 @@ class ModelResult:
         modelname: str = "Unnamed Delft3D Geotool modelresult",
         grid_resolution: int = 50,
         settings_file: str | Path = default_settings_file,
-        post: bool = True,
     ):
         """
         Delft3D ModelResult class. Used for postprocessing Delft3D GeoTool model
@@ -40,11 +38,12 @@ class ModelResult:
             Dataset of the Delft3D trim file
         sedfile : Pathlike
             Path to the D3D .sed file
+        modelname : str, optional
+            Name of the model result, by default "Unnamed Delft3D Geotool modelresult"
+        grid_resolution : int, optional
+            Desired grid resolution of the model, by default 50
         settings_file : Pathlike
             Path to settings .ini file
-        post : Boolean
-            Postprocessing or processing
-
         """
         self.modelname = modelname
         self.config = ConfigParser()
@@ -52,12 +51,6 @@ class ModelResult:
         self.dataset = dataset  # .isel(time=slice(0, 80))  # time slice for testing
         self.grid_resolution = grid_resolution
 
-        if post:
-            self.complete_init_for_postprocess()
-            self.processing_state = "postprocessing"
-        else:
-            self.complete_init_for_process()
-            self.processing_state = "processing"
         (
             self.sed_types,
             self.rho_p,
@@ -68,7 +61,6 @@ class ModelResult:
     def __repr__(self):
         return (
             f"< {self.modelname} >\n---------------------------\n"
-            + f"Processing state      : {self.processing_state}\n"
             + f"Completed timesteps   : {self.timestep}"
         )
 
@@ -87,7 +79,6 @@ class ModelResult:
             "mesh2d_ucy",
             "mesh2d_dmsedcum",
         ],
-        post: bool = True,
     ) -> Self:
         """
         Constructor for ModelResult class from Delft3D i/o folder
@@ -136,54 +127,21 @@ class ModelResult:
             sedfile=sedfile,
             modelname=modelname,
             settings_file=settings_file,
-            post=post,
         )
 
     @property
     def timestep(self):
         return len(self.dataset.time)
 
-    def complete_init_for_process(self):
+    @run_method(skip_if_present=["gt_subsidence"], required=["mesh2d_subsupl"])
+    def compute_subsidence(self):
         """
-        Derive additional attributes from the trimfile (self.dataset) for postprocessing
-        the final model results. These are:
+        Compute subsidence for postprocessing. Adds computed variable "gt_subsidence" to
+        the dataset.
 
-        bottom_depth       :       np.ndarray: array (x, y) with bottom depth
-        subsidence         :       np.ndarray: array (time, x, y) with subsidence
-        deposit_height     :       np.ndarray: array (time, x, y) height of deposits
-        """
-        self.dx, self.dy = utils.get_dx_dy(self.dataset.XZ[:, 0].values)
-        self.bottom_depth = self.dataset["DPS"].where(self.dataset["DPS"] > -10).values
-        subsidence = np.append(
-            self.dataset["SDU"].values,
-            self.dataset["SDU"].values[-1, :, :][np.newaxis, ...],
-            axis=0,
-        )
-        self.subsidence = np.diff(subsidence, axis=0)
-        self.deposit_height = np.zeros_like(self.dataset["MEAN_H1"])
-        self.deposit_height[1:, :, :] = -(
-            (
-                self.dataset["DPS"].values[1:, :, :]
-                - self.dataset["DPS"].values[:-1, :, :]
-            )
-            + self.subsidence[1:, :, :]
-        )
-        self.deposit_height[np.abs(self.deposit_height) < 1e-5] = 0
+        Adds `gt_subsidence` to the dataset.
 
-    def complete_init_for_postprocess(self):
         """
-        Derive additional attributes from the trimfile (self.dataset) for postprocessing
-        the final model results. These are:
-
-        mouth_position      :       tuple(int, int): x, y position of the delta apex
-        mouth_river_width   :       int: width of the river at the delta apex
-        model_boundary      :       shapely.Polygon: polygon of model boundary
-        deposit_height      :       np.ndarray: array (time, x, y) height of deposit
-        slope               :       np.ndarray: array (time, x, y) with surface slope
-        foreset_depth       :       np.ndarray: array (time) with time-dependent depth
-                                    of the foreset.
-        """
-        # Compute subsidence for postprocessing
         subsidence = np.append(
             self.dataset["mesh2d_subsupl"].values,
             self.dataset["mesh2d_subsupl"].values[-1, :][np.newaxis, ...],
@@ -191,52 +149,144 @@ class ModelResult:
         )
         subsidence = np.diff(subsidence, axis=0)
 
-        # Compute deposit height for postprocessing
+        # Add results to dataset
+        self.dataset["gt_subsidence"] = (("time", "mesh2d_nFaces"), subsidence)
+
+    @run_method(
+        skip_if_present=["gt_depositheight"],
+        required=["mesh2d_mor_bl"],
+        computed=["compute_subsidence"],
+    )
+    def compute_deposit_height(self):
+        """
+        Compute deposit height for postprocessing.
+
+        Adds `gt_depositheight` to the dataset.
+
+        """
         deposit_height = np.zeros_like(self.dataset["mesh2d_waterdepth"])
         deposit_height[1:, :] = (
             self.dataset["mesh2d_mor_bl"].values[1:, :]
             - self.dataset["mesh2d_mor_bl"].values[:-1, :]
-        ) + subsidence[1:, :]
+        ) + self.dataset["gt_subsidence"].values[1:, :]
         deposit_height[np.abs(deposit_height) < 1e-5] = 0
 
-        # Constrain water depth and bottom depth for postprocessing
-        self.dataset["mesh2d_waterdepth"] = self.dataset["mesh2d_waterdepth"].where(
-            self.dataset["mesh2d_waterdepth"] > -50
-        )
-        self.dataset["mesh2d_mor_bl"] = (
-            ("time", "mesh2d_nFaces"),
-            (
-                self.dataset["mesh2d_mor_bl"]
-                .where(self.dataset["mesh2d_mor_bl"] < 10)
-                .values
-            ),
-        )
-
-        # Add new variables to dataset
+        # Add results to dataset
         self.dataset["gt_depositheight"] = (("time", "mesh2d_nFaces"), deposit_height)
-        self.dataset["gt_subsidence"] = (("time", "mesh2d_nFaces"), subsidence)
 
-    def detect_channel_network(self):
+    @run_method(
+        skip_if_present=["gt_preserved_thickness", "gt_deposition_age"],
+        required=["mesh2d_mor_bl"],
+        computed=["compute_deposit_height"],
+    )
+    def compute_layering(self):
         """
-        Detect channels and derived parameters.
+        Compute preservation potential and deposition age.
 
-        Returns
-        -------
-        None (attributes channels, channel_skeleton, channel_width and channel_depth
-        are created)
+        Adds `gt_preserved_thickness` and `gt_deposition_age` to the dataset.
+
         """
-        (
-            self.channels,
-            self.channel_skeleton,
-            self.channel_width,
-            self.channel_depth,
-        ) = surface.detect_channel_network(
-            self.dataset,
-            self.subenvironment,
-            self.dx,
-            self.config,
+        zcor = -self.dataset["mesh2d_mor_bl"].values
+        preserved_thickness, deposition_age = layering.preservation(
+            zcor,
+            self.dataset["mesh2d_mor_bl"].values,
+            self.dataset["gt_depositheight"].values,
         )
 
+        # Add results to dataset
+        self.dataset["gt_preserved_thickness"] = (
+            ("time", "mesh2d_nFaces"),
+            preserved_thickness,
+        )
+        self.dataset["gt_deposition_age"] = (("time", "mesh2d_nFaces"), deposition_age)
+
+    @run_method(
+        skip_if_present=["gt_vfraction"],
+        required=["mesh2d_dmsedcum"],
+    )
+    def compute_volume_fractions(self):
+        """
+        Compute volume fractions of different sediment types.
+
+        Adds `gt_vfraction` to the dataset.
+
+        """
+        # Only the incoming sediment flux determines the composition of potential
+        # deposits, so remove fluxes of sediment classes that are negative.
+        dmsedcum_influx = self.dataset["mesh2d_dmsedcum"].values.astype(np.float32)
+        dmsedcum_influx[dmsedcum_influx < 0] = 0
+        vfraction = sediment.calculate_fraction(self.rho_db, dmsedcum_influx)
+
+        # Add results to dataset
+        self.dataset["gt_vfraction"] = (("time", "nSedTot", "mesh2d_nFaces"), vfraction)
+
+    @run_method(
+        skip_if_present=["gt_sandfraction"],
+        computed=["compute_volume_fractions"],
+    )
+    def compute_sand_fractions(self):
+        """
+        Compute sand fractions from volume fractions.
+
+        Adds `gt_sandfraction` to the dataset.
+
+        """
+        sandfraction = sediment.calculate_sand_fraction(
+            self.sed_types, self.dataset["gt_vfraction"].values
+        )
+
+        # Add results to dataset
+        self.dataset["gt_sandfraction"] = (("time", "mesh2d_nFaces"), sandfraction)
+
+    @run_method(
+        skip_if_present=["gt_diameters", "gt_porosity", "gt_permeability"],
+        computed=["compute_volume_fractions"],
+    )
+    def compute_sediment_parameters(self):
+        """
+        Compute sediment parameters such as mean diameter, porosity and permeability.
+
+        Adds `gt_diameters`, `gt_porosity`, `gt_permeability` and `gt_d50` to the dataset.
+
+        """
+        diameters, porosity, permeability = sediment.calculate_diameter(
+            np.asarray(self.d50_input, dtype=np.float32),
+            np.array([10, 16, 50, 84, 90], dtype=np.float32),
+            self.dataset["gt_vfraction"].values,
+        )
+
+        # Add results to dataset
+        self.dataset["gt_diameters"] = (("time", "mesh2d_nFaces", "dnum"), diameters)
+        self.dataset["gt_porosity"] = (("time", "mesh2d_nFaces"), porosity)
+        self.dataset["gt_permeability"] = (("time", "mesh2d_nFaces"), permeability)
+        self.dataset["gt_d50"] = (("time", "mesh2d_nFaces"), diameters[:, :, 2])
+
+    # def detect_channel_network(self):
+    #     """
+    #     Detect channels and derived parameters.
+
+    #     Returns
+    #     -------
+    #     None (attributes channels, channel_skeleton, channel_width and channel_depth
+    #     are created)
+    #     """
+    #     (
+    #         self.channels,
+    #         self.channel_skeleton,
+    #         self.channel_width,
+    #         self.channel_depth,
+    #     ) = surface.detect_channel_network(
+    #         self.dataset,
+    #         self.subenvironment,
+    #         self.dx,
+    #         self.config,
+    #     )
+
+    @run_method(
+        skip_if_present=[], #TODO
+        required=[], #TODO
+        computed=[], #TODO
+    )
     def detect_architectural_elements(self):
         """
         Detect architectural elements on the delta from previously determined
@@ -258,93 +308,6 @@ class ModelResult:
         self.subenvironment = np.vectorize(classifications.ae_to_subenvironment.get)(
             self.architectural_elements, 0
         ).astype(np.int32)
-
-    def compute_sediment_parameters_postprocessing(
-        self, dnumbers: list[int] = [10, 16, 50, 84, 90]
-    ):
-        """
-        Compute sediment parameters. Add the following attributes ModelResult:
-
-        dmsedcum_final      :       Mass flux per sediment class (time, f, x, y)
-        zcor                :       z coordinate for each time, x, y for stratigraphy
-        vfraction           :       Volume fraction per sediment class (time, f, x, y)
-        sandfraction        :       Fraction of sand sediment types (time, x, y)
-        diameters           :       np.ndarray: D50 array (time, x, y)
-        porosity            :       np.ndarray: Porosity array (time, x, y)
-        permeability        :       np.ndarray: Permeability array (time, x, y)
-
-        Returns
-        -------
-        None (but the above attributes are added to the instance)
-        """
-        # Only the incoming sediment flux determines the composition of potential
-        # deposits, so remove fluxes of sediment classes that are negative.
-        dmsedcum_influx = self.dataset["mesh2d_dmsedcum"].values.astype(np.float32)
-        dmsedcum_influx[dmsedcum_influx < 0] = 0
-
-        # Absolute z-coordinates, preserved thickness and deposition age
-        zcor = -self.dataset["mesh2d_mor_bl"].values
-        preserved_thickness, deposition_age = layering.preservation(
-            zcor,
-            self.dataset["mesh2d_mor_bl"].values,
-            self.dataset["gt_depositheight"].values,
-        )
-
-        # Compute sediment parameters
-        vfraction = sediment.calculate_fraction(self.rho_db, dmsedcum_influx)
-        sandfraction = sediment.calculate_sand_fraction(self.sed_types, vfraction)
-        diameters, porosity, permeability = calculate_diameter(
-            np.asarray(self.d50_input, dtype=np.float32),
-            np.asarray(dnumbers, dtype=np.float32),
-            vfraction,
-        )
-        sorting = sediment.calculate_sorting(diameters, dnumbers)
-        d50 = diameters[:, :, 2]
-
-        # Add new variables to the dataset
-        self.dataset["gt_preserved_thickness"] = (
-            ("time", "mesh2d_nFaces"),
-            preserved_thickness,
-        )
-        self.dataset["gt_deposition_age"] = (("time", "mesh2d_nFaces"), deposition_age)
-        self.dataset["gt_sandfraction"] = (("time", "mesh2d_nFaces"), sandfraction)
-        self.dataset["gt_vfraction"] = (("time", "nSedTot", "mesh2d_nFaces"), vfraction)
-        # self.dataset["gt_diameters"] = (("time", "mesh2d_nFaces", "dnum"), diameters)
-        self.dataset["gt_porosity"] = (("time", "mesh2d_nFaces"), porosity)
-        self.dataset["gt_permeability"] = (("time", "mesh2d_nFaces"), permeability)
-        self.dataset["gt_sorting"] = (("time", "mesh2d_nFaces"), sorting)
-        self.dataset["gt_d50"] = (("time", "mesh2d_nFaces"), d50)
-
-    def compute_sediment_parameters_processing(self):
-        """
-        Compute sediment parameters. Add the following attributes ModelResult:
-
-        Simplified for the processing step, which only requires D50 as end result.
-
-        diameters           :       np.ndarray: D50 array (time, x, y)
-
-        Returns
-        -------
-        None (but the above attributes are added to the instance)
-        """
-        percentage2cal = [50]
-        self.dmsedcum_final = self.dataset["DMSEDCUM"].values
-        # Only the incoming sediment flux determines the composition of potential
-        # deposits, so remove fluxes of sediment classes that are negative.
-        self.dmsedcum_final[self.dmsedcum_final < 0] = 0
-        self.vfraction = sediment.calculate_fraction(self.rho_db, self.dmsedcum_final)
-
-        self.zcor = -self.dataset["DPS"].values
-        self.preserved_thickness, self.deposition_age = layering.preservation(
-            self.zcor, self.dataset["SDU"].values, self.deposit_height
-        )
-
-        self.diameters, *_ = calculate_diameter(
-            np.asarray(self.d50_input, dtype=np.float32),
-            np.asarray(percentage2cal, dtype=np.float32),
-            self.vfraction,
-        )
-        self.d50 = self.diameters[:, :, :, 0]
 
     def statistics_summary(self):
         """
@@ -396,7 +359,7 @@ class ModelResult:
 
         - Compute sediment parameters
         """
-        self.compute_sediment_parameters_processing()
+        pass
 
     def postprocess(self):
         """
@@ -406,18 +369,13 @@ class ModelResult:
         - Detect subenvironments
         - Detect architectural elements
         """
-        import matplotlib.pyplot as plt
-
-        self.compute_sediment_parameters_postprocessing()
+        self.compute_deposit_height()
+        self.compute_layering()
+        self.compute_sediment_parameters()
         # At this point we switch to the rasterized dataset for further processing
         self.dataset = dfmt.rasterize_ugrid(
             self.dataset, resolution=self.grid_resolution
         )
-        # self.dataset["gt_depositheight"][2, :, :].plot.imshow(vmin=-1, vmax=1)
-        # plt.show()
-        # print("Deposit height plotted")
-        # self.detect_architectural_elements()
-        # self.statistics_summary()
 
     def export_sediment_and_object_data(self, out_file: str | Path):
         """

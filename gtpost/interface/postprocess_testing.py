@@ -52,7 +52,7 @@ def main(
     #     Path(__file__).parents[2].joinpath(f"config/settings_{template_name}.ini")
     # )
 
-    modelresult = ModelResult.from_folder(fpath_input, post=True, settings_file=None)
+    modelresult = ModelResult.from_folder(fpath_input, settings_file=None)
     logger.info(
         f"{get_current_time()}: Initialized model results:\n\n{modelresult}\n\n"
     )
