@@ -7,16 +7,17 @@ def run_method(
     computed: list[str] = [],
 ):
     """
-    Decorator to manage method execution based on dataset variables.
+    Decorator to manage method execution based on dataset variables. It allows to run any
+    method at any time as it solves its dependencies automatically.
 
     Parameters
     ----------
     skip_if_present : list[str], optional
-        List of dataset variables that, if present, will cause the method to be skipped.
+        List of dataset variables that, if present, will cause decorated method to be skipped.
     required : list[str], optional
         List of dataset variables that must be present for the method to run.
     computed : list[str], optional
-        List of method names that must have ran before running this method.
+        List of method names that must have ran before running the decorated method.
 
     """
 
@@ -25,7 +26,7 @@ def run_method(
         def wrapper(self, *args, **kwargs):
             # First check if we can skip
             skip = all(variable in self.dataset for variable in skip_if_present)
-            if skip:
+            if skip and len(skip_if_present) > 0:
                 print(
                     f"Skipping {method.__name__}: Results already exists in the dataset."
                 )

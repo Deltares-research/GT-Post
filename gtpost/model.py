@@ -49,6 +49,7 @@ class ModelResult:
         self.config = ConfigParser()
         # self.config.read(settings_file)
         self.dataset = dataset  # .isel(time=slice(0, 80))  # time slice for testing
+        self._dataset_rasterized = None
         self.grid_resolution = grid_resolution
 
         (
@@ -132,6 +133,15 @@ class ModelResult:
     @property
     def timestep(self):
         return len(self.dataset.time)
+
+    @property
+    def dataset_rasterized(self):
+        #TODO: what if new variables were added to the dataset that are not in the rasterized version?
+        if self._dataset_rasterized is None:
+            self._dataset_rasterized = dfmt.rasterize_ugrid(
+                self.dataset, resolution=self.grid_resolution
+            ).transpose(..., "x", "y")
+        return self._dataset_rasterized
 
     @run_method(skip_if_present=["gt_subsidence"], required=["mesh2d_subsupl"])
     def compute_subsidence(self):
@@ -283,9 +293,15 @@ class ModelResult:
     #     )
 
     @run_method(
-        skip_if_present=[], #TODO
-        required=[], #TODO
-        computed=[], #TODO
+        skip_if_present=[],  # TODO
+        required=[
+            "mesh2d_uorb",
+            "mesh2d_hwav",
+            "mesh2d_mor_bl",
+            "mesh2d_ucx",
+            "mesh2d_ucy",
+        ],  # TODO
+        computed=[],  # TODO
     )
     def detect_architectural_elements(self):
         """
@@ -369,13 +385,13 @@ class ModelResult:
         - Detect subenvironments
         - Detect architectural elements
         """
-        self.compute_deposit_height()
-        self.compute_layering()
-        self.compute_sediment_parameters()
+
+        # self.compute_deposit_height()
+        # self.compute_layering()
+        # self.compute_sediment_parameters()
         # At this point we switch to the rasterized dataset for further processing
-        self.dataset = dfmt.rasterize_ugrid(
-            self.dataset, resolution=self.grid_resolution
-        )
+
+        self.detect_architectural_elements()
 
     def export_sediment_and_object_data(self, out_file: str | Path):
         """

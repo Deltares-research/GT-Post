@@ -58,13 +58,16 @@ ae_to_prediction_params = {
 
 
 def generate_prediction_images(modelresult: ModelResult, folder: Path | str):
+    bottom_depth = modelresult.dataset_rasterized["mesh2d_mor_bl"].values
     for i in range(0, modelresult.timestep, 1):
         fig, ax = plt.subplots()
         contour = ax.contour(
-            modelresult.bottom_depth[i, :, :], levels=[0], colors="white"
+            bottom_depth[i, :, :],
+            levels=[0],
+            colors="white",
         )
         pred_image = ax.imshow(
-            modelresult.bottom_depth[i, :, :],
+            bottom_depth[i, :, :],
             cmap=colormaps.BottomDepthHighContrastColormap.cmap,
             vmin=colormaps.BottomDepthHighContrastColormap.vmin,
             vmax=colormaps.BottomDepthHighContrastColormap.vmax,
