@@ -49,8 +49,10 @@ class ModelResult:
         self.config = ConfigParser()
         # self.config.read(settings_file)
         self.dataset = dataset  # .isel(time=slice(0, 80))  # time slice for testing
+        self.compute_model_mask()
         self._dataset_rasterized = None
         self.grid_resolution = grid_resolution
+        self.model_mask = None
 
         (
             self.sed_types,
@@ -121,7 +123,9 @@ class ModelResult:
         # Combine relevant data_vars from map and sediment files
         vars_in_map = [var for var in used_data_vars if var in ds_map.data_vars]
         vars_in_sed = [var for var in used_data_vars if var in ds_sed.data_vars]
-        combined_ds = xu.merge([ds_map[vars_in_map], ds_sed[vars_in_sed]])
+        combined_ds = xu.merge(
+            [ds_map[vars_in_map], ds_sed[vars_in_sed]], compat="no_conflicts"
+        )
 
         return cls(
             dataset=combined_ds,
@@ -136,12 +140,24 @@ class ModelResult:
 
     @property
     def dataset_rasterized(self):
-        #TODO: what if new variables were added to the dataset that are not in the rasterized version?
+        # TODO: what if new variables were added to the dataset that are not in the rasterized version?
         if self._dataset_rasterized is None:
             self._dataset_rasterized = dfmt.rasterize_ugrid(
                 self.dataset, resolution=self.grid_resolution
             ).transpose(..., "x", "y")
         return self._dataset_rasterized
+
+    @run_method(skip_if_present=["gt_model_mask"], required=["mesh2d_mor_bl"])
+    def compute_model_mask(self):
+        """
+        Compute the model mask for postprocessing. Adds computed variable "model_mask" to
+        the dataset.
+
+        """
+        model_mask = np.where(
+            self.dataset["mesh2d_mor_bl"].values > 6, np.nan, 1
+        ).astype(np.float32)
+        self.dataset["gt_model_mask"] = (("time", "mesh2d_nFaces"), model_mask)
 
     @run_method(skip_if_present=["gt_subsidence"], required=["mesh2d_subsupl"])
     def compute_subsidence(self):
@@ -293,14 +309,14 @@ class ModelResult:
     #     )
 
     @run_method(
-        skip_if_present=[],  # TODO
+        skip_if_present=["gt_architectural_elements", "gt_subenvironment"],
         required=[
             "mesh2d_uorb",
             "mesh2d_hwav",
             "mesh2d_mor_bl",
             "mesh2d_ucx",
             "mesh2d_ucy",
-        ],  # TODO
+        ],
         computed=[],  # TODO
     )
     def detect_architectural_elements(self):
@@ -320,10 +336,17 @@ class ModelResult:
         -------
         None (attribute architectural_elements is created)
         """
-        self.architectural_elements, self.ae_mapping = detect_archels.detect(self)
-        self.subenvironment = np.vectorize(classifications.ae_to_subenvironment.get)(
-            self.architectural_elements, 0
+        architectural_elements, self.ae_mapping = detect_archels.detect(self)
+        subenvironment = np.vectorize(classifications.ae_to_subenvironment.get)(
+            architectural_elements, 0
         ).astype(np.int32)
+
+        # Assign the detected architectural elements and subenvironment to the dataset
+        self.dataset_rasterized["gt_architectural_elements"] = (
+            ("time", "x", "y"),
+            architectural_elements,
+        )
+        self.dataset_rasterized["gt_subenvironment"] = (("time", "x", "y"), subenvironment)
 
     def statistics_summary(self):
         """
@@ -385,12 +408,9 @@ class ModelResult:
         - Detect subenvironments
         - Detect architectural elements
         """
-
-        # self.compute_deposit_height()
-        # self.compute_layering()
-        # self.compute_sediment_parameters()
-        # At this point we switch to the rasterized dataset for further processing
-
+        self.compute_deposit_height()
+        self.compute_layering()
+        self.compute_sediment_parameters()
         self.detect_architectural_elements()
 
     def export_sediment_and_object_data(self, out_file: str | Path):

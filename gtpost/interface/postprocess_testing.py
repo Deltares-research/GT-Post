@@ -102,16 +102,16 @@ def main(
     # stat_plotter = plot.StatPlot(modelresult)
     # stat_plotter.plot_histograms_wavedominated(fpath_output, "archel_summary")
 
-    # # Map plots
-    # logger.info(f"{get_current_time()}: Plotting archel maps, " + log_memory_usage())
-    # map_plotter = plot.MapPlot(modelresult)
-    # map_plotter.twopanel_map(
-    #     "bottom_depth",
-    #     "architectural_elements",
-    #     fpath_output,
-    #     "map_bottomdepth_archels",
-    #     only_last_timestep=False,
-    # )
+    # Map plots
+    logger.info(f"{get_current_time()}: Plotting archel maps, " + log_memory_usage())
+    map_plotter = plot.MapPlot(modelresult)
+    map_plotter.twopanel_map(
+        "mesh2d_mor_bl",
+        "gt_architectural_elements",
+        fpath_output,
+        "map_bottomdepth_archels",
+        only_last_timestep=False,
+    )
 
     # Cross-section plots
     position_tags = ["xshore_7000", "xshore_5000", "xshore_9000", "lshore_3500"]
@@ -134,28 +134,28 @@ def main(
             only_last_timestep=False,
         )
 
-        # logger.info(
-        #     f"{get_current_time()}: Plotting archel x-sections, " + log_memory_usage()
-        # )
-        # xsect_plotter.twopanel_xsection(
-        #     "bottom_depth",
-        #     "architectural_elements",
-        #     fpath_output,
-        #     f"xsect_archels_{position_tag}",
-        #     only_last_timestep=False,
-        # )
-
         logger.info(
-            f"{get_current_time()}: Plotting deposition age x-sections, "
-            + log_memory_usage()
+            f"{get_current_time()}: Plotting archel x-sections, " + log_memory_usage()
         )
         xsect_plotter.twopanel_xsection(
             "mesh2d_mor_bl",
-            "gt_deposition_age",
+            "gt_architectural_elements",
             fpath_output,
-            f"xsect_depositionage_{position_tag}",
+            f"xsect_archels_{position_tag}",
             only_last_timestep=False,
         )
+
+        # logger.info(
+        #     f"{get_current_time()}: Plotting deposition age x-sections, "
+        #     + log_memory_usage()
+        # )
+        # xsect_plotter.twopanel_xsection(
+        #     "mesh2d_mor_bl",
+        #     "gt_deposition_age",
+        #     fpath_output,
+        #     f"xsect_depositionage_{position_tag}",
+        #     only_last_timestep=False,
+        # )
 
 
 if __name__ == "__main__":

@@ -18,7 +18,7 @@ from gtpost.visualize import colormaps
 class PlotBase:
     colormaps = {
         "gt_d50": colormaps.GrainsizeColormap(),
-        "architectural_elements": colormaps.GenericCategoricalColormap(
+        "gt_architectural_elements": colormaps.GenericCategoricalColormap(
             ArchEl,
             [
                 "undefined",
@@ -48,8 +48,8 @@ class PlotBase:
     def __init__(self, modelresult):
         self.model = modelresult
         self.tickfactor = self.model.grid_resolution / 1000
-        self.xticks_map = np.arange(0, len(self.model.dataset.x), 50)
-        self.yticks_map = np.arange(0, len(self.model.dataset.y), 50)
+        self.xticks_map = np.arange(0, len(self.model.dataset_rasterized.x), 50)
+        self.yticks_map = np.arange(0, len(self.model.dataset_rasterized.y), 50)
 
     def __new__(cls, *args, **kwargs):
         if cls is PlotBase:

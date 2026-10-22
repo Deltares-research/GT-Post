@@ -21,28 +21,28 @@ def postprocess_result(
     prediction_result: np.ndarray,
 ):
     # Apply model mask to the prediction result
-    prediction_result *= modelresult.model_mask.values
+    #prediction_result *= modelresult.dataset_rasterized["gt_model_mask"].values
     prediction_result[
         (prediction_result == classifications.ArchEl.undefined.value)
-        & (modelresult.dataset["UORB"] < 0.2)
-        & (modelresult.bottom_depth > 6)
+        & (modelresult.dataset_rasterized["mesh2d_uorb"] < 0.2)
+        & (modelresult.dataset_rasterized["mesh2d_mor_bl"].values > 6)
     ] = classifications.ArchEl.offshore.value
     prediction_result[
         (prediction_result == classifications.ArchEl.undefined.value)
-        & (modelresult.dataset["UORB"] < 0.4)
-        & (modelresult.bottom_depth > 2)
+        & (modelresult.dataset_rasterized["mesh2d_uorb"] < 0.4)
+        & (modelresult.dataset_rasterized["mesh2d_mor_bl"].values > 2)
     ] = classifications.ArchEl.lshoreface.value
     prediction_result[
         (prediction_result == classifications.ArchEl.undefined.value)
-        & (modelresult.bottom_depth > 0)
+        & (modelresult.dataset_rasterized["mesh2d_mor_bl"].values > 0)
     ] = classifications.ArchEl.ushoreface.value
     prediction_result[
         (prediction_result == classifications.ArchEl.beach.value)
-        & (modelresult.bottom_depth > 0)
+        & (modelresult.dataset_rasterized["mesh2d_mor_bl"].values > 0)
     ] = classifications.ArchEl.ushoreface.value
     prediction_result[
         (prediction_result == classifications.ArchEl.undefined.value)
-        & (modelresult.bottom_depth <= 0)
+        & (modelresult.dataset_rasterized["mesh2d_mor_bl"].values <= 0)
     ] = classifications.ArchEl.dtundef.value
     prediction_result[0, 0, 0] = 0
     return prediction_result
