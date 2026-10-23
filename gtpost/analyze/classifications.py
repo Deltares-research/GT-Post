@@ -49,6 +49,27 @@ class ArchEl(Enum):
             self.backbarrier: "slategray",
         }[self]
 
+    @property
+    def legend_label(self):
+        return {
+            self.undefined: "N/A",
+            self.dtundef: "DT",
+            self.dtbayfill: "BF",
+            self.dchannel: "DC",
+            self.tchannel: "TC",
+            self.mouthbar: "MB",
+            self.deltafront: "DF",
+            self.prodelta: "PD",
+            self.ushoreface: "US",
+            self.lshoreface: "LS",
+            self.offshore: "OS",
+            self.beachridge: "BR",
+            self.beach: "B",
+            self.tinlet: "TI",
+            self.tidalflat: "TF",
+            self.backbarrier: "BB",
+        }[self]
+
 
 subenvironment_codes = [i.value for i in SubEnv.__iter__()]
 subenvironment_names = [i.name for i in SubEnv.__iter__()]

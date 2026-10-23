@@ -48,7 +48,7 @@ class ModelResult:
         self.modelname = modelname
         self.config = ConfigParser()
         # self.config.read(settings_file)
-        self.dataset = dataset  # .isel(time=slice(0, 80))  # time slice for testing
+        self.dataset = dataset.isel(time=slice(0, 80))  # time slice for testing
         self.compute_model_mask()
         self._dataset_rasterized = None
         self.grid_resolution = grid_resolution

@@ -18,23 +18,7 @@ from gtpost.visualize import colormaps
 class PlotBase:
     colormaps = {
         "gt_d50": colormaps.GrainsizeColormap(),
-        "gt_architectural_elements": colormaps.GenericCategoricalColormap(
-            ArchEl,
-            [
-                "undefined",
-                "dtundef",
-                "dtbayfill",
-                "dchannel",
-                "tchannel",
-                "ushoreface",
-                "lshoreface",
-                "offshore",
-                "beachridge",
-                "beach",
-            ],
-            "Architectural elements",
-        ),
-        # "architectural_elements": colormaps.ArchelColormap(),
+        "gt_architectural_elements": colormaps.ArchelColormap(),
         "gt_depositheight": colormaps.BedlevelchangeColormap(),
         "gt_porosity": colormaps.PorosityColormap(),
         "mesh2d_mor_bl": colormaps.BottomDepthColormap(),
@@ -250,9 +234,9 @@ class PlotBase:
             # and right x-positions of the potential polygon and append it to the list of
             # polygons for this position:
             if colormap.type == "mappable":
-                color = colormap.mappable.to_rgba(data[timestep, i])
+                color = colormap.mappable.to_rgba(data.values[timestep, i])
             elif colormap.type == "categorical":
-                color = colormap.colors[data[timestep, i]]
+                color = colormap.colors[data.values[timestep, i]]
 
             if bed_chg_left > 0.0 or bed_chg_middle > 0.0 or bed_chg_right > 0.0:
                 self.patches_per_position[i].append(
@@ -456,13 +440,17 @@ class CrossSectionPlot(PlotBase):
             start, finish
         )
         self.anchor_y = np.diagonal(
-            self.model.dataset["mesh2d_mor_bl"][:, self.xc, self.yc].values,
+            self.model.dataset_rasterized["mesh2d_mor_bl"][:, self.xc, self.yc].values,
             axis1=1,
             axis2=2,
         )
-        self.dh = self.model.dataset["gt_depositheight"].values[:, self.xc, self.yc]
-        self.dsub = self.model.dataset["gt_subsidence"].values[:, self.xc, self.yc]
-        self.preserved = self.model.dataset["gt_preserved_thickness"].values[
+        self.dh = self.model.dataset_rasterized["gt_depositheight"].values[
+            :, self.xc, self.yc
+        ]
+        self.dsub = self.model.dataset_rasterized["gt_subsidence"].values[
+            :, self.xc, self.yc
+        ]
+        self.preserved = self.model.dataset_rasterized["gt_preserved_thickness"].values[
             :, self.xc, self.yc
         ]
         self.width = 1
@@ -483,10 +471,10 @@ class CrossSectionPlot(PlotBase):
         timeline_start=5,
         only_last_timestep=False,
     ):
-        data_xsect = self.model.dataset[variable_xsect][
+        data_xsect = self.model.dataset_rasterized[variable_xsect][
             :, xr.DataArray(self.xc), xr.DataArray(self.yc)
         ]
-        data_base = self.model.dataset[variable_basemap]
+        data_base = self.model.dataset_rasterized[variable_basemap]
         colormap_xsect = self.colormaps[variable_xsect]
         colormap_base = self.colormaps[variable_basemap]
 
@@ -552,8 +540,8 @@ class MapPlot(PlotBase):
     def twopanel_map(
         self, variable_1, variable_2, path, name, only_last_timestep=False
     ):
-        data_1 = self.model.__dict__[variable_1]
-        data_2 = self.model.__dict__[variable_2]
+        data_1 = self.model.dataset_rasterized[variable_1]
+        data_2 = self.model.dataset_rasterized[variable_2]
         colormap_1 = self.colormaps[variable_1]
         colormap_2 = self.colormaps[variable_2]
 

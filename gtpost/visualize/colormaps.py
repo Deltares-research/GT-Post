@@ -36,15 +36,11 @@ def continuous_cmap(colorlist, name, vmin, vmax):
 
 
 class GenericCategoricalColormap:
-    def __init__(self, classifications_enum_class, labels, name):
-        self.labels = labels
-        self.alphas = [1] * len(labels)
-        self.colors = [
-            classifications_enum_class[label.name].color
-            for label in classifications_enum_class
-            if label.name in labels
-        ]
-        self.ticks = np.arange(0, len(labels))
+    def __init__(self, classifications_enum_class, name):
+        self.labels = [i.legend_label for i in classifications_enum_class.__iter__()]
+        self.alphas = [1] * len(self.labels)
+        self.colors = [i.color for i in classifications_enum_class.__iter__()]
+        self.ticks = np.arange(0, len(self.labels))
         self.name = name
         self.type = "categorical"
         self.cmap, self.mappable, self.bounds, self.values, self.norm = (
@@ -53,18 +49,10 @@ class GenericCategoricalColormap:
 
 
 class ArchelColormap(NamedTuple):
-    alphas = [1, 1, 1, 1, 1, 1, 1]
-    colors = [
-        "snow",
-        "yellowgreen",
-        "mediumseagreen",
-        "deepskyblue",
-        "yellow",
-        "turquoise",
-        "mediumblue",
-    ]
-    labels = ["N/A", "DT-subar", "DT-subaq", "AC", "MB", "DF", "PD"]
-    ticks = np.arange(0, 7)
+    colors = [i.color for i in ArchEl.__iter__()]
+    alphas = [1 for _ in colors]
+    labels = [i.legend_label for i in ArchEl.__iter__()]
+    ticks = np.arange(0, len(labels))
     name = "Architectural elements"
     type = "categorical"
     cmap, mappable, bounds, values, norm = categorical_cmap(alphas, colors, name)
@@ -85,7 +73,7 @@ class WaveArchelColormap(NamedTuple):
         "yellow",
     ]
     labels = ["N/A", "DT", "BF", "DC", "TC", "US", "LS", "OS", "BR", "B"]
-    ticks = np.arange(0, 10)
+    ticks = np.arange(0, len(labels))
     name = "Architectural elements"
     type = "categorical"
     cmap, mappable, bounds, values, norm = categorical_cmap(alphas, colors, name)

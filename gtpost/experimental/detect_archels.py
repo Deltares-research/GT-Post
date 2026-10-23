@@ -131,7 +131,7 @@ def detect(
     # Stack results and apply final postprocessing
     final_prediction = segmentation_utils.merge_arrays_in_order(results)
     final_prediction = postprocess_result(modelresult, final_prediction)
-    final_prediction, ae_mapping = utils.normalize_numpy_array(final_prediction)
+    #final_prediction, ae_mapping = utils.normalize_numpy_array(final_prediction)
 
     # Remove temporary folder with prediction images
     if prediction_images_temp_folder.is_dir():
@@ -139,4 +139,4 @@ def detect(
             file.unlink()
         prediction_images_temp_folder.rmdir()
 
-    return final_prediction.astype(np.int32), ae_mapping
+    return final_prediction.astype(np.int32), None
