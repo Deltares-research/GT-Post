@@ -37,7 +37,7 @@ def continuous_cmap(colorlist, name, vmin, vmax):
 
 class GenericCategoricalColormap:
     def __init__(self, classifications_enum_class, name):
-        self.labels = [i.legend_label for i in classifications_enum_class.__iter__()]
+        self.labels = [i.label for i in classifications_enum_class.__iter__()]
         self.alphas = [1] * len(self.labels)
         self.colors = [i.color for i in classifications_enum_class.__iter__()]
         self.ticks = np.arange(0, len(self.labels))
@@ -51,7 +51,7 @@ class GenericCategoricalColormap:
 class ArchelColormap(NamedTuple):
     colors = [i.color for i in ArchEl.__iter__()]
     alphas = [1 for _ in colors]
-    labels = [i.legend_label for i in ArchEl.__iter__()]
+    labels = [i.label for i in ArchEl.__iter__()]
     ticks = np.arange(0, len(labels))
     name = "Architectural elements"
     type = "categorical"
@@ -208,3 +208,7 @@ class DepositionageColormap(NamedTuple):
     vmin = 0
     vmax = 320
     cmap, mappable, norm = continuous_cmap([c0, c1, c2, c3, c4], name, vmin, vmax)
+
+
+# if __name__ == "__main__":
+#     aem = ArchelColormap()

@@ -42,7 +42,7 @@ class PredictionParams:
 dchannel = PredictionParams(
     unit_name="distributary channel",
     string_code="dchannel",
-    encoding=classifications.ArchEl.dchannel.value,
+    encoding=classifications.ArchEl.dchannel.code,
     trained_model=YOLO(
         Path(__file__).parent.joinpath("trained_yolo_models/best_dchannel_yolo11l.pt")
     ),
@@ -54,7 +54,7 @@ dchannel = PredictionParams(
 beachridge = PredictionParams(
     unit_name="Beach ridge",
     string_code="beachridge",
-    encoding=classifications.ArchEl.beachridge.value,
+    encoding=classifications.ArchEl.beachridge.code,
     trained_model=YOLO(
         Path(__file__).parent.joinpath("trained_yolo_models/best_beachridge_yolo11l.pt")
     ),
@@ -66,7 +66,7 @@ beachridge = PredictionParams(
 beach = PredictionParams(
     unit_name="Beach",
     string_code="beach",
-    encoding=classifications.ArchEl.beach.value,
+    encoding=classifications.ArchEl.beach.code,
     trained_model=YOLO(
         Path(__file__).parent.joinpath("trained_yolo_models/best_beach_yolo11l.pt")
     ),
@@ -78,7 +78,7 @@ beach = PredictionParams(
 dtundef = PredictionParams(
     unit_name="deltatop",
     string_code="dtundef",
-    encoding=classifications.ArchEl.dtundef.value,
+    encoding=classifications.ArchEl.dtundef.code,
     trained_model=YOLO(
         Path(__file__).parent.joinpath("trained_yolo_models/best_dtundef_yolo11l.pt")
     ),
@@ -90,7 +90,7 @@ dtundef = PredictionParams(
 tchannel = PredictionParams(
     unit_name="tidal channel",
     string_code="tchannel",
-    encoding=classifications.ArchEl.tchannel.value,
+    encoding=classifications.ArchEl.tchannel.code,
     trained_model=YOLO(
         Path(__file__).parent.joinpath("trained_yolo_models/best_tchannel_yolo11l.pt")
     ),

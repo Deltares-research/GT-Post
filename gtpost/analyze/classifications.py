@@ -11,64 +11,47 @@ class SubEnv(Enum):
 
 
 class ArchEl(Enum):
-    undefined = 0
-    dtundef = 1
-    dtbayfill = 2
-    dchannel = 3
-    tchannel = 4
-    mouthbar = 5
-    deltafront = 6
-    prodelta = 7
-    ushoreface = 8
-    lshoreface = 9
-    offshore = 10
-    beachridge = 11
-    beach = 12
-    tinlet = 13
-    tidalflat = 14
-    backbarrier = 15
+    undefined = (0, "white", "N/A", "Undefined")
+    dtundef = (1, "yellowgreen", "DT", "Generic delta top area")
+    dtbayfill = (2, "mediumseagreen", "BF", "Bay fill")
+    dchannel = (3, "deepskyblue", "DC", "Distributary channels")
+    tchannel = (4, "coral", "TC", "Tidal channel")
+    mouthbar = (5, "orange", "MB", "Mouth bars")
+    deltafront = (6, "paleturquoise", "DF", "Delta front")
+    prodelta = (7, "mediumblue", "PD", "Prodelta")
+    ushoreface = (8, "khaki", "US", "Upper shoreface")
+    lshoreface = (9, "darkkhaki", "LS", "Lower shoreface")
+    offshore = (10, "mediumblue", "OS", "Offshore")
+    beachridge = (11, "gold", "BR", "Beach ridges")
+    beach = (12, "yellow", "B", "Beaches")
+    tinlet = (13, "blue", "TI", "Tidal inlets")
+    tidalflat = (14, "thistle", "TF", "Tidal flats")
+    backbarrier = (15, "slategray", "BB", "Back barriers")
+
+    def __init__(self, code, color, label, description):
+        self._code = code
+        self._color = color
+        self._label = label
+        self._description = description
+
+    def __repr__(self):
+        return f"<ArchEl.{self.name}: code={self.code}, label={self.label}>"
+
+    @property
+    def code(self):
+        return self._code
 
     @property
     def color(self):
-        return {
-            self.undefined: "white",
-            self.dtundef: "yellowgreen",
-            self.dtbayfill: "mediumseagreen",
-            self.dchannel: "deepskyblue",
-            self.tchannel: "coral",
-            self.mouthbar: "orange",
-            self.deltafront: "paleturquoise",
-            self.prodelta: "mediumblue",
-            self.ushoreface: "khaki",
-            self.lshoreface: "darkkhaki",
-            self.offshore: "mediumblue",
-            self.beachridge: "gold",
-            self.beach: "yellow",
-            self.tinlet: "blue",
-            self.tidalflat: "thistle",
-            self.backbarrier: "slategray",
-        }[self]
+        return self._color
 
     @property
-    def legend_label(self):
-        return {
-            self.undefined: "N/A",
-            self.dtundef: "DT",
-            self.dtbayfill: "BF",
-            self.dchannel: "DC",
-            self.tchannel: "TC",
-            self.mouthbar: "MB",
-            self.deltafront: "DF",
-            self.prodelta: "PD",
-            self.ushoreface: "US",
-            self.lshoreface: "LS",
-            self.offshore: "OS",
-            self.beachridge: "BR",
-            self.beach: "B",
-            self.tinlet: "TI",
-            self.tidalflat: "TF",
-            self.backbarrier: "BB",
-        }[self]
+    def label(self):
+        return self._label
+
+    @property
+    def description(self):
+        return self._description
 
 
 subenvironment_codes = [i.value for i in SubEnv.__iter__()]

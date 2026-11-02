@@ -115,24 +115,24 @@ def main(
 
     # Cross-section plots
     position_tags = ["xshore_7000", "xshore_5000", "xshore_9000", "lshore_3500"]
-    xsect_starts = [(140, 30), (100, 30), (180, 30), (20, 70)]
-    xsect_ends = [(140, 140), (100, 140), (180, 140), (260, 70)]
+    xsect_starts = [(30, 140), (30, 100), (30, 180), (70, 20)]
+    xsect_ends = [(140, 140), (140, 100), (140, 180), (70, 260)]
 
     for position_tag, xsect_start, xsect_end in zip(
         position_tags, xsect_starts, xsect_ends
     ):
         xsect_plotter = plot.CrossSectionPlot(modelresult, xsect_start, xsect_end)
 
-        logger.info(
-            f"{get_current_time()}: Plotting D50 x-sections, " + log_memory_usage()
-        )
-        xsect_plotter.twopanel_xsection(
-            "mesh2d_mor_bl",
-            "gt_d50",
-            fpath_output,
-            f"xsect_diameter_{position_tag}",
-            only_last_timestep=False,
-        )
+        # logger.info(
+        #     f"{get_current_time()}: Plotting D50 x-sections, " + log_memory_usage()
+        # )
+        # xsect_plotter.twopanel_xsection(
+        #     "mesh2d_mor_bl",
+        #     "gt_d50",
+        #     fpath_output,
+        #     f"xsect_diameter_{position_tag}",
+        #     only_last_timestep=False,
+        # )
 
         logger.info(
             f"{get_current_time()}: Plotting archel x-sections, " + log_memory_usage()

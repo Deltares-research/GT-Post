@@ -90,6 +90,7 @@ cuda-toolkit = "*"
 psutil = "*"
 sympy = "*"
 numba_celltree = "*"
+ffmpeg-python = "*"
 
 [tool.pixi.pypi-dependencies]
 labelme2yolo = "*"

@@ -23,27 +23,27 @@ def postprocess_result(
     # Apply model mask to the prediction result
     #prediction_result *= modelresult.dataset_rasterized["gt_model_mask"].values
     prediction_result[
-        (prediction_result == classifications.ArchEl.undefined.value)
+        (prediction_result == classifications.ArchEl.undefined.code)
         & (modelresult.dataset_rasterized["mesh2d_uorb"] < 0.2)
-        & (modelresult.dataset_rasterized["mesh2d_mor_bl"].values > 6)
-    ] = classifications.ArchEl.offshore.value
+        & (modelresult.dataset_rasterized["mesh2d_mor_bl"].values < -6)
+    ] = classifications.ArchEl.offshore.code
     prediction_result[
-        (prediction_result == classifications.ArchEl.undefined.value)
+        (prediction_result == classifications.ArchEl.undefined.code)
         & (modelresult.dataset_rasterized["mesh2d_uorb"] < 0.4)
-        & (modelresult.dataset_rasterized["mesh2d_mor_bl"].values > 2)
-    ] = classifications.ArchEl.lshoreface.value
+        & (modelresult.dataset_rasterized["mesh2d_mor_bl"].values < -2)
+    ] = classifications.ArchEl.lshoreface.code
     prediction_result[
-        (prediction_result == classifications.ArchEl.undefined.value)
-        & (modelresult.dataset_rasterized["mesh2d_mor_bl"].values > 0)
-    ] = classifications.ArchEl.ushoreface.value
+        (prediction_result == classifications.ArchEl.undefined.code)
+        & (modelresult.dataset_rasterized["mesh2d_mor_bl"].values < 0)
+    ] = classifications.ArchEl.ushoreface.code
     prediction_result[
-        (prediction_result == classifications.ArchEl.beach.value)
-        & (modelresult.dataset_rasterized["mesh2d_mor_bl"].values > 0)
-    ] = classifications.ArchEl.ushoreface.value
+        (prediction_result == classifications.ArchEl.beach.code)
+        & (modelresult.dataset_rasterized["mesh2d_mor_bl"].values < 0)
+    ] = classifications.ArchEl.ushoreface.code
     prediction_result[
-        (prediction_result == classifications.ArchEl.undefined.value)
-        & (modelresult.dataset_rasterized["mesh2d_mor_bl"].values <= 0)
-    ] = classifications.ArchEl.dtundef.value
+        (prediction_result == classifications.ArchEl.undefined.code)
+        & (modelresult.dataset_rasterized["mesh2d_mor_bl"].values >= 0)
+    ] = classifications.ArchEl.dtundef.code
     prediction_result[0, 0, 0] = 0
     return prediction_result
 
