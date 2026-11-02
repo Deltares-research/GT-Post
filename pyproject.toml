@@ -8,7 +8,7 @@ dynamic = ["version"]
 authors = [
     {name = "Erik van Onselen", email = "erik.vanonselen@deltares.nl"}
 ]
-description = "Delft3D Geotool post-processing"
+description = "Delft3D-FM geology post-processing"
 readme = "README.md"
 license = {file = "LICENSE"}
 keywords = [
@@ -64,7 +64,6 @@ python = ">=3.12"
 numpy = "*"
 numba = "*"
 pandas = "*"
-pillow = "*"
 tqdm = "*"
 requests = "*"
 imgviz = "*"
