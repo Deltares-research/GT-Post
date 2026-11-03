@@ -48,7 +48,7 @@ class ModelResult:
         self.modelname = modelname
         self.config = ConfigParser()
         # self.config.read(settings_file)
-        self.dataset = dataset  # .isel(time=slice(0, 80))  # time slice for testing
+        self.dataset = dataset.isel(time=slice(0, 80))  # time slice for testing
         self.compute_model_mask()
         self._dataset_rasterized = None
         self.grid_resolution = grid_resolution
@@ -220,6 +220,11 @@ class ModelResult:
         )
 
         # Add results to dataset
+        self.dataset["gt_zcor"] = (
+            ("time", "mesh2d_nFaces"),
+            zcor,
+        )
+        self.dataset["gt_deposition_age"] = (("time", "mesh2d_nFaces"), deposition_age)
         self.dataset["gt_preserved_thickness"] = (
             ("time", "mesh2d_nFaces"),
             preserved_thickness,
@@ -280,12 +285,14 @@ class ModelResult:
             np.array([10, 16, 50, 84, 90], dtype=np.float32),
             self.dataset["gt_vfraction"].values,
         )
+        sorting = sediment.calculate_sorting(diameters)
 
         # Add results to dataset
         self.dataset["gt_diameters"] = (("time", "mesh2d_nFaces", "dnum"), diameters)
         self.dataset["gt_porosity"] = (("time", "mesh2d_nFaces"), porosity)
         self.dataset["gt_permeability"] = (("time", "mesh2d_nFaces"), permeability)
         self.dataset["gt_d50"] = (("time", "mesh2d_nFaces"), diameters[:, :, 2])
+        self.dataset["gt_sorting"] = (("time", "mesh2d_nFaces"), sorting)
 
     # def detect_channel_network(self):
     #     """
@@ -414,6 +421,7 @@ class ModelResult:
         self.compute_deposit_height()
         self.compute_layering()
         self.compute_sediment_parameters()
+        self.compute_sand_fractions()
         self.detect_architectural_elements()
 
     def export_sediment_and_object_data(self, out_file: str | Path):

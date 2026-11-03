@@ -64,7 +64,7 @@ def calculate_sand_fraction(sed_types: list, vfraction: np.array) -> np.array:
     return sand_fraction
 
 
-def calculate_sorting(diameters: np.ndarray, percentage2cal: list) -> np.ndarray:
+def calculate_sorting(diameters: np.ndarray) -> np.ndarray:
     """
     Calculate the sorting parameter of sediment grain size distribution using Folks
     (1968) method.
@@ -73,9 +73,6 @@ def calculate_sorting(diameters: np.ndarray, percentage2cal: list) -> np.ndarray
     ----------
     diameters : np.ndarray
         A multi-dimensional array of sediment grain diameters.
-    percentage2cal : list
-        A list of percentage values used to calculate the sorting parameter.
-        It should contain the values 10, 16, 84, and 90.
 
     Returns
     -------
@@ -88,9 +85,7 @@ def calculate_sorting(diameters: np.ndarray, percentage2cal: list) -> np.ndarray
     sorting = (phi_84 - phi_16) / 4 + (phi_90 - phi_10) / 6.6
     where phi_x is the grain size at the xth percentile in grain size phi.
     """
-    index10, index16, index84, index90 = (
-        percentage2cal.index(p) for p in (10, 16, 84, 90)
-    )
+    index10, index16, index84, index90 = (0, 1, 3, 4)
     phi = -np.log2(diameters)
 
     # Compute Folk's (1968) sorting parameter

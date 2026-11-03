@@ -3,39 +3,12 @@ from enum import Enum
 import numpy as np
 
 
-class SubEnv(Enum):
-    undefined = 0
-    deltatop = 1
-    deltafront = 2
-    prodelta = 3
-
-
-class ArchEl(Enum):
-    undefined = (0, "white", "N/A", "Undefined")
-    dtundef = (1, "yellowgreen", "DT", "Generic delta top area")
-    dtbayfill = (2, "mediumseagreen", "BF", "Bay fill")
-    dchannel = (3, "deepskyblue", "DC", "Distributary channels")
-    tchannel = (4, "coral", "TC", "Tidal channel")
-    mouthbar = (5, "orange", "MB", "Mouth bars")
-    deltafront = (6, "paleturquoise", "DF", "Delta front")
-    prodelta = (7, "mediumblue", "PD", "Prodelta")
-    ushoreface = (8, "khaki", "US", "Upper shoreface")
-    lshoreface = (9, "darkkhaki", "LS", "Lower shoreface")
-    offshore = (10, "mediumblue", "OS", "Offshore")
-    beachridge = (11, "gold", "BR", "Beach ridges")
-    beach = (12, "yellow", "B", "Beaches")
-    tinlet = (13, "blue", "TI", "Tidal inlets")
-    tidalflat = (14, "thistle", "TF", "Tidal flats")
-    backbarrier = (15, "slategray", "BB", "Back barriers")
-
+class ElementsBase:
     def __init__(self, code, color, label, description):
         self._code = code
         self._color = color
         self._label = label
         self._description = description
-
-    def __repr__(self):
-        return f"<ArchEl.{self.name}: code={self.code}, label={self.label}>"
 
     @property
     def code(self):
@@ -54,28 +27,49 @@ class ArchEl(Enum):
         return self._description
 
 
-subenvironment_codes = [i.value for i in SubEnv.__iter__()]
-subenvironment_names = [i.name for i in SubEnv.__iter__()]
-archel_codes = [i.value for i in ArchEl.__iter__()]
-archel_names = [i.name for i in ArchEl.__iter__()]
+class SubEnv(ElementsBase, Enum):
+    undefined = (0, "white", "N/A", "Undefined")
+    deltatop = (1, "yellowgreen", "DT", "Generic delta top area")
+    deltafront = (2, "paleturquoise", "DF", "Delta front")
+    prodelta = (3, "mediumblue", "PD", "Prodelta")
+
+
+class ArchEl(ElementsBase, Enum):
+    undefined = (0, "white", "N/A", "Undefined")
+    dtundef = (1, "yellowgreen", "DT", "Generic delta top area")
+    dtbayfill = (2, "mediumseagreen", "BF", "Bay fill")
+    dchannel = (3, "deepskyblue", "DC", "Distributary channels")
+    tchannel = (4, "coral", "TC", "Tidal channel")
+    mouthbar = (5, "orange", "MB", "Mouth bars")
+    deltafront = (6, "paleturquoise", "DF", "Delta front")
+    prodelta = (7, "mediumblue", "PD", "Prodelta")
+    ushoreface = (8, "khaki", "US", "Upper shoreface")
+    lshoreface = (9, "darkkhaki", "LS", "Lower shoreface")
+    offshore = (10, "mediumblue", "OS", "Offshore")
+    beachridge = (11, "gold", "BR", "Beach ridges")
+    beach = (12, "yellow", "B", "Beaches")
+    tinlet = (13, "blue", "TI", "Tidal inlets")
+    tidalflat = (14, "thistle", "TF", "Tidal flats")
+    backbarrier = (15, "slategray", "BB", "Back barriers")
+
 
 ae_to_subenvironment = {
-    0: SubEnv.undefined.value,
-    1: SubEnv.deltatop.value,
-    2: SubEnv.deltatop.value,
-    3: SubEnv.deltatop.value,
-    4: SubEnv.deltatop.value,
-    5: SubEnv.deltatop.value,
-    6: SubEnv.deltafront.value,
-    7: SubEnv.prodelta.value,
-    8: SubEnv.deltafront.value,
-    9: SubEnv.prodelta.value,
-    10: SubEnv.prodelta.value,
-    11: SubEnv.deltatop.value,
-    12: SubEnv.deltatop.value,
-    13: SubEnv.deltatop.value,
-    14: SubEnv.deltatop.value,
-    15: SubEnv.deltatop.value,
+    0: SubEnv.undefined.code,
+    1: SubEnv.deltatop.code,
+    2: SubEnv.deltatop.code,
+    3: SubEnv.deltatop.code,
+    4: SubEnv.deltatop.code,
+    5: SubEnv.deltatop.code,
+    6: SubEnv.deltafront.code,
+    7: SubEnv.prodelta.code,
+    8: SubEnv.deltafront.code,
+    9: SubEnv.prodelta.code,
+    10: SubEnv.prodelta.code,
+    11: SubEnv.deltatop.code,
+    12: SubEnv.deltatop.code,
+    13: SubEnv.deltatop.code,
+    14: SubEnv.deltatop.code,
+    15: SubEnv.deltatop.code,
 }
 
 

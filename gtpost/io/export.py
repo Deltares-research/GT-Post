@@ -5,8 +5,8 @@ from gtpost.analyze import classifications
 # Compression parameters
 ENCODINGS = {
     "d50_per_sedclass": {"zlib": True, "complevel": 9},
-    "xcor": {"zlib": True, "complevel": 9},
-    "ycor": {"zlib": True, "complevel": 9},
+    # "xcor": {"zlib": True, "complevel": 9},
+    # "ycor": {"zlib": True, "complevel": 9},
     "zcor": {"zlib": True, "complevel": 9},
     "subsidence": {"zlib": True, "complevel": 9},
     "preserved_thickness": {"zlib": True, "complevel": 9},
@@ -25,7 +25,7 @@ ENCODINGS = {
 def create_sed_and_obj_dataset(p):
     data_vars = dict(
         d50_per_sedclass=(
-            "dimen_f",
+            "sed_class",
             p.d50_input,
             dict(
                 long_name="D50 values defining each sediment class",
@@ -33,72 +33,83 @@ def create_sed_and_obj_dataset(p):
                 units="meter",
             ),
         ),
-        xcor=(
-            ("dimen_x", "dimen_y"),
-            p.dataset.XCOR.values,
-            dict(
-                long_name="x coordinates of cells",
-                variable_type="D3D output",
-                units="meter",
-            ),
-        ),
-        ycor=(
-            ("dimen_x", "dimen_y"),
-            p.dataset.YCOR.values,
-            dict(
-                long_name="y coordinates of cells",
-                variable_type="D3D output",
-                units="meter",
-            ),
-        ),
+        # xcor=(
+        #     ("dimen_x", "dimen_y"),
+        #     p.dataset_rasterized.x.values,
+        #     dict(
+        #         long_name="x coordinates of cells",
+        #         variable_type="D3D output",
+        #         units="meter",
+        #     ),
+        # ),
+        # ycor=(
+        #     ("dimen_x", "dimen_y"),
+        #     p.dataset.YCOR.values,
+        #     dict(
+        #         long_name="y coordinates of cells",
+        #         variable_type="D3D output",
+        #         units="meter",
+        #     ),
+        # ),
         zcor=(
-            ("dimen_t", "dimen_x", "dimen_y"),
-            p.zcor,
+            ("time", "x", "y"),
+            p.dataset_rasterized["gt_zcor"].data,
             dict(
-                long_name="z coordinates of cells",
+                long_name="z-coordinate of surface",
                 variable_type="D3D output",
                 units="meter",
             ),
         ),
         subsidence=(
-            ("dimen_t", "dimen_x", "dimen_y"),
-            p.subsidence,
+            ("time", "x", "y"),
+            p.dataset_rasterized["gt_subsidence"].data,
             dict(
-                long_name="Subsidence in meter per timestep and location",
+                long_name="subsidence in meter per timestep",
                 variable_type="D3D output",
                 units="meter",
             ),
         ),
-        preserved_thickness=(
-            ("dimen_t", "dimen_x", "dimen_y"),
-            p.preserved_thickness,
+        deposit_height=(
+            ("time", "x", "y"),
+            p.dataset_rasterized["gt_depositheight"].data,
             dict(
-                long_name="Final preserved thickness of deposits",
+                long_name="height of deposit",
                 variable_type="calculated",
                 units="meter",
+                notes="only values larger than 0. If erosion took place, deposit height is 0",
+            ),
+        ),
+        preserved_thickness=(
+            ("time", "x", "y"),
+            p.dataset_rasterized["gt_preserved_thickness"].data,
+            dict(
+                long_name="fraction of deposit height that will have been preserved at the end of simulation",
+                variable_type="calculated",
+                units="meter",
+                notes="only values larger than 0. 0 means that the deposit will have eroded completely by the end of simulation, whereas 1 means that it will be fully preserved",
             ),
         ),
         deposition_age=(
-            ("dimen_t", "dimen_x", "dimen_y"),
-            p.deposition_age,
+            ("time", "x", "y"),
+            p.dataset_rasterized["gt_deposition_age"].data,
             dict(
-                long_name="Timestep at which deposition took place",
+                long_name="timestep at which deposition took place",
                 variable_type="calculated",
                 units="-",
             ),
         ),
         diameter=(
-            ("dimen_t", "dimen_x", "dimen_y"),
-            p.d50,
+            ("time", "x", "y"),
+            p.dataset_rasterized["gt_d50"].data,
             dict(
-                long_name="Overall D50 value for cell, based on combination of classes",
+                long_name="D50 of sediment",
                 variable_type="calculated",
                 units="meter",
             ),
         ),
         fraction=(
-            ("dimen_t", "dimen_x", "dimen_y"),
-            p.sandfraction,
+            ("time", "x", "y"),
+            p.dataset_rasterized["gt_sandfraction"].data,
             dict(
                 long_name="fraction of sediment that is sand",
                 variable_type="calculated",
@@ -106,35 +117,35 @@ def create_sed_and_obj_dataset(p):
             ),
         ),
         sorting=(
-            ("dimen_t", "dimen_x", "dimen_y"),
-            p.sorting,
+            ("time", "x", "y"),
+            p.dataset_rasterized["gt_sorting"].data,
             dict(
-                long_name="Sorting value based on Folks 1968",
+                long_name="sorting value based on Folks 1968",
                 variable_type="calculated",
                 units="-",
             ),
         ),
         porosity=(
-            ("dimen_t", "dimen_x", "dimen_y"),
-            p.porosity,
+            ("time", "x", "y"),
+            p.dataset_rasterized["gt_porosity"].data,
             dict(
-                long_name="Porosity based on Takebayashi and Fujita 2014",
+                long_name="porosity based on Takebayashi and Fujita 2014",
                 variable_type="calculated",
                 units="-",
             ),
         ),
         permeability=(
-            ("dimen_t", "dimen_x", "dimen_y"),
-            p.permeability,
+            ("time", "x", "y"),
+            p.dataset_rasterized["gt_permeability"].data,
             dict(
-                long_name="Permeability based on Panda & Lake 1994",
+                long_name="permeability based on Panda & Lake 1994",
                 variable_type="calculated",
                 units="m2",
             ),
         ),
         vfractions=(
-            ("dimen_t", "dimen_f", "dimen_x", "dimen_y"),
-            p.vfraction,
+            ("time", "sed_class", "x", "y"),
+            p.dataset_rasterized["gt_vfraction"].data,
             dict(
                 long_name="volume fraction of each grain size class per cell",
                 variable_type="D3D output",
@@ -142,8 +153,8 @@ def create_sed_and_obj_dataset(p):
             ),
         ),
         mfractions=(
-            ("dimen_t", "dimen_f", "dimen_x", "dimen_y"),
-            p.dmsedcum_final,
+            ("time", "sed_class", "x", "y"),
+            p.dataset_rasterized["mesh2d_dmsedcum"].data,
             dict(
                 long_name="mass fraction of each grain size class per cell",
                 variable_type="D3D output",
@@ -151,28 +162,34 @@ def create_sed_and_obj_dataset(p):
             ),
         ),
         archel=(
-            ("dimen_t", "dimen_x", "dimen_y"),
-            p.architectural_elements,
+            ("time", "x", "y"),
+            p.dataset_rasterized["gt_architectural_elements"].data,
             dict(
                 long_name="architectural element",
                 variable_type="calculated",
-                units="nr 0 to 6",
+                units="-",
             ),
         ),
         subenv=(
-            ("dimen_t", "dimen_x", "dimen_y"),
-            p.subenvironment,
+            ("time", "x", "y"),
+            p.dataset_rasterized["gt_subenvironment"].data,
             dict(
                 long_name="subenvironment",
                 variable_type="calculated",
-                units="nr 0 to 3",
+                units="-",
             ),
         ),
     )
     ds = xr.Dataset(data_vars)
-    ds["subenv"].attrs["encoding"] = classifications.subenvironment_codes
-    ds["subenv"].attrs["names"] = classifications.subenvironment_names
-    ds["archel"].attrs["encoding"] = classifications.archel_codes
-    ds["archel"].attrs["names"] = classifications.archel_names
+    ds["subenv"].attrs["encoding"] = [i.code for i in classifications.SubEnv.__iter__()]
+    ds["subenv"].attrs["descriptions"] = [
+        i.description for i in classifications.SubEnv.__iter__()
+    ]
+    ds["subenv"].attrs["labels"] = [i.label for i in classifications.SubEnv.__iter__()]
+    ds["archel"].attrs["encoding"] = [i.code for i in classifications.ArchEl.__iter__()]
+    ds["archel"].attrs["descriptions"] = [
+        i.description for i in classifications.ArchEl.__iter__()
+    ]
+    ds["archel"].attrs["labels"] = [i.label for i in classifications.ArchEl.__iter__()]
 
     return ds
