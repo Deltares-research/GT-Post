@@ -5,10 +5,9 @@ from gtpost.analyze import classifications
 # Compression parameters
 ENCODINGS = {
     "d50_per_sedclass": {"zlib": True, "complevel": 9},
-    # "xcor": {"zlib": True, "complevel": 9},
-    # "ycor": {"zlib": True, "complevel": 9},
-    "zcor": {"zlib": True, "complevel": 9},
+    "surface_height": {"zlib": True, "complevel": 9},
     "subsidence": {"zlib": True, "complevel": 9},
+    "deposit_height": {"zlib": True, "complevel": 9},
     "preserved_thickness": {"zlib": True, "complevel": 9},
     "diameter": {"zlib": True, "complevel": 9},
     "fraction": {"zlib": True, "complevel": 9},
@@ -33,29 +32,11 @@ def create_sed_and_obj_dataset(p):
                 units="meter",
             ),
         ),
-        # xcor=(
-        #     ("dimen_x", "dimen_y"),
-        #     p.dataset_rasterized.x.values,
-        #     dict(
-        #         long_name="x coordinates of cells",
-        #         variable_type="D3D output",
-        #         units="meter",
-        #     ),
-        # ),
-        # ycor=(
-        #     ("dimen_x", "dimen_y"),
-        #     p.dataset.YCOR.values,
-        #     dict(
-        #         long_name="y coordinates of cells",
-        #         variable_type="D3D output",
-        #         units="meter",
-        #     ),
-        # ),
-        zcor=(
+        surface_height=(
             ("time", "x", "y"),
             p.dataset_rasterized["gt_zcor"].data,
             dict(
-                long_name="z-coordinate of surface",
+                long_name="surface height",
                 variable_type="D3D output",
                 units="meter",
             ),
@@ -64,7 +45,7 @@ def create_sed_and_obj_dataset(p):
             ("time", "x", "y"),
             p.dataset_rasterized["gt_subsidence"].data,
             dict(
-                long_name="subsidence in meter per timestep",
+                long_name="subsidence",
                 variable_type="D3D output",
                 units="meter",
             ),
@@ -76,7 +57,7 @@ def create_sed_and_obj_dataset(p):
                 long_name="height of deposit",
                 variable_type="calculated",
                 units="meter",
-                notes="only values larger than 0. If erosion took place, deposit height is 0",
+                notes="positive values = deposition, 0 = no deposition, negative values = erosion",
             ),
         ),
         preserved_thickness=(
@@ -93,7 +74,7 @@ def create_sed_and_obj_dataset(p):
             ("time", "x", "y"),
             p.dataset_rasterized["gt_deposition_age"].data,
             dict(
-                long_name="timestep at which deposition took place",
+                long_name="timestep at which last deposition took place",
                 variable_type="calculated",
                 units="-",
             ),
@@ -180,7 +161,14 @@ def create_sed_and_obj_dataset(p):
             ),
         ),
     )
-    ds = xr.Dataset(data_vars)
+    ds = xr.Dataset(
+        data_vars,
+        coords={
+            "time": p.dataset_rasterized["time"],
+            "x": p.dataset_rasterized["x"],
+            "y": p.dataset_rasterized["y"],
+        },
+    )
     ds["subenv"].attrs["encoding"] = [i.code for i in classifications.SubEnv.__iter__()]
     ds["subenv"].attrs["descriptions"] = [
         i.description for i in classifications.SubEnv.__iter__()
